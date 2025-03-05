@@ -7,7 +7,7 @@
         public Article Article { get; set; } // Makale ilişkisi
 
         public int ReviewerId { get; set; } // Hakemin kimliği
-        public  User User { get; set; }
+        public  User User { get; set; }//den
 
         public string Comments { get; set; } // Hakemin yorumu
      
