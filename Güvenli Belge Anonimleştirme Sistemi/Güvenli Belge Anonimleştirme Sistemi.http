@@ -1,0 +1,6 @@
+@Güvenli_Belge_Anonimleştirme_Sistemi_HostAddress = http://localhost:5093
+
+GET {{Güvenli_Belge_Anonimleştirme_Sistemi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
