@@ -6,6 +6,20 @@ using Güvenli_Belge_Anonimleþtirme_Sistemi.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// CORS Politikasý Tanýmlama
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: MyAllowSpecificOrigins,
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173") // React Vite uygulamasýnýn adresi
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+});
+
 // Add services to the container.
 builder.Services.AddControllers();
 
@@ -43,6 +57,10 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 }
 
 app.UseHttpsRedirection();
+
+// CORS Middleware'ini Ekle (Authentication ve Authorization'dan Önce)
+app.UseCors(MyAllowSpecificOrigins);
+
 app.UseAuthentication();
 app.UseAuthorization();
 
