@@ -30,7 +30,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("No file uploaded.");
             }
 
-            // Dosya içeriğini oku
+            // Read the file content into a byte array
             byte[] fileContent;
             using (var memoryStream = new MemoryStream())
             {
@@ -38,15 +38,15 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 fileContent = memoryStream.ToArray();
             }
 
-            // Şifreleme
-            string encryptedContent = EncryptionHelper.Encrypt(fileContent); // Base64 şifreli veri
+            // Convert the byte array to a Base64 string
+            var base64Content = Convert.ToBase64String(fileContent);
 
-            // Veritabanına kaydet
+            // Save the article details to the database
             var article = new Makale
             {
                 Title = model.Title,
                 AuthorEmail = model.AuthorEmail,
-                ContentPath = encryptedContent, // Base64 string olarak kaydedildi
+                ContentPath = base64Content, // Store the file content as a Base64 string
                 TrackingNumber = Guid.NewGuid().ToString(),
                 Status = "Uploaded",
                 ArticleDate = DateTime.Now,
@@ -57,24 +57,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(new { TrackingNumber = article.TrackingNumber });
         }
-        [HttpGet("download/{trackingNumber}")]
-        public async Task<IActionResult> DownloadArticle(string trackingNumber)
-        {
-            var article = await _context.Articles
-                .FirstOrDefaultAsync(a => a.TrackingNumber == trackingNumber);
-
-            if (article == null)
-            {
-                return NotFound("Article not found.");
-            }
-
-            // Şifre çözme
-            byte[] decryptedContent = EncryptionHelper.Decrypt(article.ContentPath); // Base64 string şifresi çözülecek
-
-            return File(decryptedContent, "application/pdf", $"{article.Title}.pdf");
-        }
-
-
         [HttpGet("status/{trackingNumber}")]
         public async Task<IActionResult> GetArticleStatus(string trackingNumber)
         {
