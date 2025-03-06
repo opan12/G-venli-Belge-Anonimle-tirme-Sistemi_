@@ -87,22 +87,6 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    dbContext.Database.Migrate();
-
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    var roles = new[] { "Admin", "User" };
-    foreach (var role in roles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole(role));
-        }
-    }
-}
-
 // Middleware and HTTP request pipeline
 if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
@@ -116,11 +100,18 @@ if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 }
 
 app.UseHttpsRedirection();
+
+// Routing middleware'ini ekleyin
+app.UseRouting();
+
+// Authentication ve Authorization middleware'lerini ekleyin
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Endpoint middleware'ini ekleyin
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
 });
+
 app.Run();
