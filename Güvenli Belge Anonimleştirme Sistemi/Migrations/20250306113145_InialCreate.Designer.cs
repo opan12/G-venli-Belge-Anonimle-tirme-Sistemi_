@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250305152033_InialCreate")]
+    [Migration("20250306113145_InialCreate")]
     partial class InialCreate
     {
         /// <inheritdoc />
@@ -25,7 +25,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Article", b =>
+            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Makale", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -33,11 +33,22 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime>("ArticleDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("AuthorEmail")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ContentPath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("EncryptedAesKey")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -55,10 +66,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("articles");
+                    b.ToTable("Articles");
                 });
 
-            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Review", b =>
+            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Message", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -69,24 +80,39 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                     b.Property<int>("ArticleId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Comments")
+                    b.Property<string>("Content")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("ReviewerId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("UserId")
+                    b.Property<string>("SenderEmail")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ArticleId");
 
-                    b.HasIndex("UserId");
+                    b.ToTable("messages");
+                });
 
-                    b.ToTable("reviews");
+            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Reviewer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Alan")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Reviewer");
                 });
 
             modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.User", b =>
@@ -153,6 +179,39 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                         .HasFilter("[NormalizedUserName] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
+                });
+
+            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Yorum", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ArticleId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Comments")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("MakaleId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("ReviewDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ReviewerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MakaleId");
+
+                    b.HasIndex("ReviewerId");
+
+                    b.ToTable("reviews");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -288,23 +347,34 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Review", b =>
+            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Message", b =>
                 {
-                    b.HasOne("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Article", "Article")
+                    b.HasOne("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Makale", "Article")
                         .WithMany()
                         .HasForeignKey("ArticleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("Güvenli_Belge_Anonimleştirme_Sistemi.Model.User", "User")
+                    b.Navigation("Article");
+                });
+
+            modelBuilder.Entity("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Yorum", b =>
+                {
+                    b.HasOne("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Makale", "Makale")
                         .WithMany()
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("MakaleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Article");
+                    b.HasOne("Güvenli_Belge_Anonimleştirme_Sistemi.Model.Reviewer", "Reviewer")
+                        .WithMany()
+                        .HasForeignKey("ReviewerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("Makale");
+
+                    b.Navigation("Reviewer");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>

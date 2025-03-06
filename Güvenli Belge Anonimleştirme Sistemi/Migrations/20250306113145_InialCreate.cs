@@ -12,7 +12,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
-                name: "articles",
+                name: "Articles",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -20,12 +20,15 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                     Title = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     ContentPath = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     AuthorEmail = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    EncryptedAesKey = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ContentHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     TrackingNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    Status = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ArticleDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_articles", x => x.Id);
+                    table.PrimaryKey("PK_Articles", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -65,6 +68,41 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AspNetUsers", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Reviewer",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    Alan = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Reviewer", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "messages",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ArticleId = table.Column<int>(type: "int", nullable: false),
+                    SenderEmail = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    SentAt = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_messages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_messages_Articles_ArticleId",
+                        column: x => x.ArticleId,
+                        principalTable: "Articles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -180,23 +218,24 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ArticleId = table.Column<int>(type: "int", nullable: false),
+                    MakaleId = table.Column<int>(type: "int", nullable: false),
                     ReviewerId = table.Column<int>(type: "int", nullable: false),
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    Comments = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    Comments = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ReviewDate = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_reviews", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_reviews_AspNetUsers_UserId",
-                        column: x => x.UserId,
-                        principalTable: "AspNetUsers",
+                        name: "FK_reviews_Articles_MakaleId",
+                        column: x => x.MakaleId,
+                        principalTable: "Articles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_reviews_articles_ArticleId",
-                        column: x => x.ArticleId,
-                        principalTable: "articles",
+                        name: "FK_reviews_Reviewer_ReviewerId",
+                        column: x => x.ReviewerId,
+                        principalTable: "Reviewer",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -241,14 +280,19 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_reviews_ArticleId",
-                table: "reviews",
+                name: "IX_messages_ArticleId",
+                table: "messages",
                 column: "ArticleId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_reviews_UserId",
+                name: "IX_reviews_MakaleId",
                 table: "reviews",
-                column: "UserId");
+                column: "MakaleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_reviews_ReviewerId",
+                table: "reviews",
+                column: "ReviewerId");
         }
 
         /// <inheritdoc />
@@ -270,6 +314,9 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                 name: "AspNetUserTokens");
 
             migrationBuilder.DropTable(
+                name: "messages");
+
+            migrationBuilder.DropTable(
                 name: "reviews");
 
             migrationBuilder.DropTable(
@@ -279,7 +326,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                 name: "AspNetUsers");
 
             migrationBuilder.DropTable(
-                name: "articles");
+                name: "Articles");
+
+            migrationBuilder.DropTable(
+                name: "Reviewer");
         }
     }
 }
