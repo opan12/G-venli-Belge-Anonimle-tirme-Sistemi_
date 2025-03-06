@@ -7,6 +7,5 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Model
         public string Title { get; set; }
         public string AuthorEmail { get; set; }
         public IFormFile PdfFile { get; set; }
-        public DateTime ArticleDate { get; set; }
     }
 }

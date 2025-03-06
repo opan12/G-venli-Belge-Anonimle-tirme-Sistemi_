@@ -21,33 +21,35 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _env = env;
         }
 
+
         [HttpPost("upload")]
         public async Task<IActionResult> UploadArticle([FromForm] ArticleUploadModel model)
         {
-
-
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
-            if (!Directory.Exists(uploadsFolder))
+            if (model.PdfFile == null || model.PdfFile.Length == 0)
             {
-                Directory.CreateDirectory(uploadsFolder);
+                return BadRequest("No file uploaded.");
             }
 
-            var uniqueFileName = Guid.NewGuid().ToString() + "_" + model.PdfFile.FileName;
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            // Read the file content into a byte array
+            byte[] fileContent;
+            using (var memoryStream = new MemoryStream())
             {
-                await model.PdfFile.CopyToAsync(fileStream);
+                await model.PdfFile.CopyToAsync(memoryStream);
+                fileContent = memoryStream.ToArray();
             }
 
+            // Convert the byte array to a Base64 string
+            var base64Content = Convert.ToBase64String(fileContent);
+
+            // Save the article details to the database
             var article = new Makale
             {
                 Title = model.Title,
                 AuthorEmail = model.AuthorEmail,
-                ContentPath = filePath,
+                PdfContent = base64Content, // Store the file content as a Base64 string
                 TrackingNumber = Guid.NewGuid().ToString(),
                 Status = "Uploaded",
-                ArticleDate= DateTime.Now,
+                ArticleDate = DateTime.Now,
             };
 
             _context.Articles.Add(article);
@@ -55,7 +57,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(new { TrackingNumber = article.TrackingNumber });
         }
-
         [HttpGet("status/{trackingNumber}")]
         public async Task<IActionResult> GetArticleStatus(string trackingNumber)
         {
