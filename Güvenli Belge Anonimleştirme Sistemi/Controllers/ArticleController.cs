@@ -46,7 +46,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 Title = model.Title,
                 AuthorEmail = model.AuthorEmail,
-                PdfContent = base64Content, // Store the file content as a Base64 string
+                ContentPath = base64Content, // Store the file content as a Base64 string
                 TrackingNumber = Guid.NewGuid().ToString(),
                 Status = "Uploaded",
                 ArticleDate = DateTime.Now,
