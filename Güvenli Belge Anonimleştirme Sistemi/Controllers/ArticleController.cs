@@ -90,10 +90,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(reviews);
         }
-
         [HttpPut("revise/{trackingNumber}")]
         public async Task<IActionResult> ReviseArticle(string trackingNumber, [FromForm] ArticleUploadModel model)
         {
+            // Find the article by tracking number
             var article = await _context.Articles
                 .FirstOrDefaultAsync(a => a.TrackingNumber == trackingNumber);
 
@@ -102,32 +102,27 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Makale bulunamadı.");
             }
 
-            // Eski dosyayı sil
-            if (System.IO.File.Exists(article.ContentPath))
+            if (model.PdfFile == null || model.PdfFile.Length == 0)
             {
-                System.IO.File.Delete(article.ContentPath);
+                return BadRequest("No file uploaded.");
             }
 
-            // Yeni dosyayı yükle
-            var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
-            if (!Directory.Exists(uploadsFolder))
+            // Read the new file content into a byte array
+            byte[] fileContent;
+            using (var memoryStream = new MemoryStream())
             {
-                Directory.CreateDirectory(uploadsFolder);
+                await model.PdfFile.CopyToAsync(memoryStream);
+                fileContent = memoryStream.ToArray();
             }
 
-            var uniqueFileName = Guid.NewGuid().ToString() + "_" + model.PdfFile.FileName;
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+            // Convert the byte array to a Base64 string
+            var base64Content = Convert.ToBase64String(fileContent);
 
-            using (var fileStream = new FileStream(filePath, FileMode.Create))
-            {
-                await model.PdfFile.CopyToAsync(fileStream);
-            }
-
-            // Makaleyi güncelle
+            // Update the article details
             article.Title = model.Title;
-            article.ContentPath = filePath;
-            article.Status = "Revized"; // Durumu güncelle
-            article.ArticleDate = DateTime.Now;
+            article.ContentPath = base64Content; // Store the new file content as a Base64 string
+            article.Status = "Revized"; // Update the status
+            article.ArticleDate = DateTime.Now; // Update the revision date
 
             _context.Articles.Update(article);
             await _context.SaveChangesAsync();
