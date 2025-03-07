@@ -53,7 +53,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Makale bilgilerini veritabanına kaydedin
             var article = new Makale
             {
-                Title = model.Title,
                 AuthorEmail = model.AuthorEmail,
                 ContentPath = filePath, // Dosyanın tam yolunu saklıyoruz
                 TrackingNumber = Guid.NewGuid().ToString(),
@@ -133,7 +132,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             var base64Content = Convert.ToBase64String(fileContent);
 
             // Update the article details
-            article.Title = model.Title;
             article.ContentPath = base64Content; // Store the new file content as a Base64 string
             article.Status = "Revized"; // Update the status
             article.ArticleDate = DateTime.Now; // Update the revision date

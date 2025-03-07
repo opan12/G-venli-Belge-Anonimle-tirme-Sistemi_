@@ -16,8 +16,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Data
         public DbSet<Makale> Articles { get; set; }
         public DbSet<Yorum> reviews { get; set; }
         public DbSet<Message> messages { get; set; }
+        public DbSet<Reviewer> Reviewers { get; set; }
 
 
+        
 
 
         //  public DbSet<Odenek> Odeneks { get; set; }
