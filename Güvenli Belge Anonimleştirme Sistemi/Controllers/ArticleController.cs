@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Hosting;
 using System.IO;
 using System.Threading.Tasks;
 using Güvenli_Belge_Anonimleştirme_Sistemi.Data;
+using System;
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
@@ -46,6 +47,9 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 await model.PdfFile.CopyToAsync(fileStream);
             }
 
+            // NLP ile alan belirleme
+            var articleArea = DetermineArticleArea(filePath); // Bu metod NLP ile alanı belirleyecek
+
             // Makale bilgilerini veritabanına kaydedin
             var article = new Makale
             {
@@ -54,9 +58,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 ContentPath = filePath, // Dosyanın tam yolunu saklıyoruz
                 TrackingNumber = Guid.NewGuid().ToString(),
                 Status = "Uploaded",
-                Content="",
-                AnonymizedContent="",
+                Content = "",
+                AnonymizedContent = "",
                 ArticleDate = DateTime.Now,
+                Alan = articleArea // Alanı kaydedin
             };
 
             _context.Articles.Add(article);
@@ -98,6 +103,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(reviews);
         }
+
         [HttpPut("revise/{trackingNumber}")]
         public async Task<IActionResult> ReviseArticle(string trackingNumber, [FromForm] ArticleUploadModel model)
         {
@@ -136,6 +142,41 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { TrackingNumber = article.TrackingNumber });
+        }
+        private string DetermineArticleArea(string filePath)
+        {
+            // Dosya içeriğini oku
+            string fileContent;
+            using (var reader = new StreamReader(filePath))
+            {
+                fileContent = reader.ReadToEnd();
+            }
+
+            // Alan belirlemek için anahtar kelimeleri tanımlayın
+            var keywords = new Dictionary<string, List<string>>
+    {
+        { "Biology", new List<string> { "cell", "organism", "ecosystem", "genetics" } },
+        { "Physics", new List<string> { "force", "energy", "mass", "quantum" } },
+        { "Medicine", new List<string> { "health", "treatment", "disease", "symptom" } },
+        { "Artificial Intelligence", new List<string> { "machine learning", "neural network", "algorithm", "data" } },
+        { "Chemistry", new List<string> { "reaction", "molecule", "compound", "element" } },
+        { "Mathematics", new List<string> { "calculus", "algebra", "geometry", "theorem" } },
+        { "Astronomy", new List<string> { "planet", "star", "galaxy", "universe" } }
+    };
+
+            // İçerikte anahtar kelimeleri kontrol et ve alanı belirle
+            foreach (var keyword in keywords)
+            {
+                foreach (var term in keyword.Value)
+                {
+                    if (fileContent.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return keyword.Key; // Anahtar kelime bulunduğunda alanı döndür
+                    }
+                }
+            }
+
+            return "Bilinmeyen Alan"; // Hiçbir anahtar kelime bulunamazsa
         }
     }
 }
