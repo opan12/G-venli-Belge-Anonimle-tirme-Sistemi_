@@ -21,7 +21,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _env = env;
         }
 
-
         [HttpPost("upload")]
         public async Task<IActionResult> UploadArticle([FromForm] ArticleUploadModel model)
         {
@@ -30,25 +29,33 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("No file uploaded.");
             }
 
-            // Read the file content into a byte array
-            byte[] fileContent;
-            using (var memoryStream = new MemoryStream())
+            // uploads klasörünün var olup olmadığını kontrol et, yoksa oluştur
+            var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+            if (!Directory.Exists(uploadDirectory))
             {
-                await model.PdfFile.CopyToAsync(memoryStream);
-                fileContent = memoryStream.ToArray();
+                Directory.CreateDirectory(uploadDirectory); // uploads klasörünü oluştur
             }
 
-            // Convert the byte array to a Base64 string
-            var base64Content = Convert.ToBase64String(fileContent);
+            var fileExtension = Path.GetExtension(model.PdfFile.FileName);
+            var fileName = $"{Guid.NewGuid()}{fileExtension}";
+            var filePath = Path.Combine(uploadDirectory, fileName);
 
-            // Save the article details to the database
+            // Dosyayı kaydedin
+            using (var fileStream = new FileStream(filePath, FileMode.Create))
+            {
+                await model.PdfFile.CopyToAsync(fileStream);
+            }
+
+            // Makale bilgilerini veritabanına kaydedin
             var article = new Makale
             {
                 Title = model.Title,
                 AuthorEmail = model.AuthorEmail,
-                ContentPath = base64Content, // Store the file content as a Base64 string
+                ContentPath = filePath, // Dosyanın tam yolunu saklıyoruz
                 TrackingNumber = Guid.NewGuid().ToString(),
                 Status = "Uploaded",
+                Content="",
+                AnonymizedContent="",
                 ArticleDate = DateTime.Now,
             };
 
@@ -57,6 +64,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(new { TrackingNumber = article.TrackingNumber });
         }
+
         [HttpGet("status/{trackingNumber}")]
         public async Task<IActionResult> GetArticleStatus(string trackingNumber)
         {
