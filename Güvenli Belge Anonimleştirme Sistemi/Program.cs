@@ -9,14 +9,19 @@ var builder = WebApplication.CreateBuilder(args);
 // CORS Politikasý Tanýmlama
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
+// CORS ayarlarý, port dinamikliði için geliþmiþ yapý
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins,
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173") // React Vite uygulamasýnýn adresi
-                  .AllowAnyHeader()
-                  .AllowAnyMethod();
+            // Burada dinamik olarak localhost portlarýný kabul edebilirsiniz
+            policy.SetIsOriginAllowed(origin =>
+            {
+                return origin.StartsWith("http://localhost:");  // localhost ile baþlayan tüm portlara izin verir
+            })
+            .AllowAnyHeader()
+            .AllowAnyMethod();
         });
 });
 
@@ -39,7 +44,7 @@ builder.Services.AddIdentity<IdentityUser, IdentityRole>()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    // Swagger configuration options can be added here
+    // Swagger yapýlandýrma ayarlarý
 });
 
 var app = builder.Build();
