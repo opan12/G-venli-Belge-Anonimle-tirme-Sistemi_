@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Güvenli_Belge_Anonimleştirme_Sistemi.Data;
+using iTextSharp.text.pdf.parser;
+using System.IO; // Çakışmayı önlemek için
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
@@ -22,7 +24,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _context = context;
         }
 
-        // PDF dosyasını veritabanından alıp anonimleştirme işlemi
         [HttpPost("anonimize/{trackingNumber}")]
         public async Task<IActionResult> AnonimizeMakale(string trackingNumber)
         {
@@ -37,20 +38,83 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("Makale içerik yolu bulunamadı.");
             }
 
-            var filePath = makale.ContentPath; // Veritabanından alınan PDF dosyasının yolu
+            var filePath = makale.ContentPath;
+
             if (!System.IO.File.Exists(filePath))
             {
                 return BadRequest("PDF dosyası mevcut değil.");
             }
 
-            // Anonimleştirilmiş PDF'yi oluştur
-            var anonymizedPdfBytes = await Task.Run(() => CreateAnonymizedPdf(filePath));
+            // Anonimleştirilmiş dosyanın kaydedileceği klasörü belirle
+            string directoryPath = System.IO.Path.Combine("wwwroot", "uploads", "anonimized");
 
-            // Dosyayı indirmek için HTTP yanıtı döndür
-            return File(anonymizedPdfBytes, "application/pdf", "anonimleştirilmis_makale.pdf");
+            // Eğer klasör yoksa oluştur
+            if (!System.IO.Directory.Exists(directoryPath))
+            {
+                System.IO.Directory.CreateDirectory(directoryPath);
+            }
+
+            // Yeni dosyanın adını oluştur
+            string anonymizedFileName = $"anonimized_{trackingNumber}.pdf";
+            string anonymizedFilePath = System.IO.Path.Combine(directoryPath, anonymizedFileName);
+
+            // Anonimleştirilmiş PDF'yi oluştur
+            byte[] anonymizedPdfBytes = await Task.Run(() => CreateAnonymizedPdf(filePath));
+
+            // Dosyayı sunucuda kaydet
+            await System.IO.File.WriteAllBytesAsync(anonymizedFilePath, anonymizedPdfBytes);
+
+            // Makale modeline anonimleştirilmiş dosyanın yolunu kaydet (veritabanına kaydetmek istersen)
+            makale.AnonymizedContent = anonymizedFilePath;
+            await _context.SaveChangesAsync();
+
+            return File(anonymizedPdfBytes, "application/pdf", anonymizedFileName);
+        }
+        [HttpGet("get-anonymized-pdf/{trackingNumber}")]
+        public IActionResult GetAnonymizedPdf(string trackingNumber)
+        {
+            var makale = _context.Articles.FirstOrDefault(m => m.TrackingNumber == trackingNumber);
+            if (makale == null || string.IsNullOrEmpty(makale.AnonymizedContent))
+            {
+                return NotFound("Anonimleştirilmiş makale bulunamadı.");
+            }
+
+            var filePath = makale.AnonymizedContent;
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound("Dosya mevcut değil.");
+            }
+
+            // `wwwroot` içindeki yolunu istemciye göndermek için relative path oluştur
+            var relativePath = filePath.Replace("wwwroot", "").Replace("\\", "/");
+
+            // Tarayıcıdan erişilebilecek URL'yi döndür
+            var fileUrl = $"{Request.Scheme}://{Request.Host}{relativePath}";
+
+            return Ok(new { fileUrl });
         }
 
-        // PDF içeriğini anonimleştir ve yeni bir PDF dosyası oluştur (formatı koruyarak)
+        [HttpGet("download/{trackingNumber}")]
+        public IActionResult DownloadFile(string trackingNumber)
+        {
+            var makale = _context.Articles.FirstOrDefault(m => m.TrackingNumber == trackingNumber);
+            if (makale == null || string.IsNullOrEmpty(makale.AnonymizedContent))
+            {
+                return NotFound("Makale bulunamadı veya henüz yüklenmedi.");
+            }
+
+            string filePath = makale.AnonymizedContent;
+
+            if (!System.IO.File.Exists(filePath))
+            {
+                return NotFound("Dosya bulunamadı.");
+            }
+
+            byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
+            return File(fileBytes, "application/pdf", System.IO.Path.GetFileName(filePath));
+        }
+
+
         private byte[] CreateAnonymizedPdf(string originalPdfPath)
         {
             using (var reader = new PdfReader(originalPdfPath))
