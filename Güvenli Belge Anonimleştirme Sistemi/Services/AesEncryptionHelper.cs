@@ -9,7 +9,7 @@ public class AesEncryptionHelper
     public AesEncryptionHelper(string key)
     {
         _key = Encoding.UTF8.GetBytes(key);
-        _iv = new byte[16]; // IV için 16 byte'lık bir dizi oluştur
+        _iv = new byte[16]; // 16 byte IV
     }
 
     public string Encrypt(string plainText)
@@ -19,17 +19,15 @@ public class AesEncryptionHelper
             aes.Key = _key;
             aes.IV = _iv;
 
-            var encryptor = aes.CreateEncryptor(aes.Key, aes.IV);
+            using (var encryptor = aes.CreateEncryptor(aes.Key, aes.IV))
             using (var ms = new MemoryStream())
             {
                 using (var cs = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
+                using (var sw = new StreamWriter(cs))
                 {
-                    using (var sw = new StreamWriter(cs))
-                    {
-                        sw.Write(plainText);
-                    }
-                    return Convert.ToBase64String(ms.ToArray());
+                    sw.Write(plainText);
                 }
+                return Convert.ToBase64String(ms.ToArray());
             }
         }
     }
@@ -41,16 +39,12 @@ public class AesEncryptionHelper
             aes.Key = _key;
             aes.IV = _iv;
 
-            var decryptor = aes.CreateDecryptor(aes.Key, aes.IV);
+            using (var decryptor = aes.CreateDecryptor(aes.Key, aes.IV))
             using (var ms = new MemoryStream(Convert.FromBase64String(cipherText)))
+            using (var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
+            using (var sr = new StreamReader(cs))
             {
-                using (var cs = new CryptoStream(ms, decryptor, CryptoStreamMode.Read))
-                {
-                    using (var sr = new StreamReader(cs))
-                    {
-                        return sr.ReadToEnd();
-                    }
-                }
+                return sr.ReadToEnd();
             }
         }
     }

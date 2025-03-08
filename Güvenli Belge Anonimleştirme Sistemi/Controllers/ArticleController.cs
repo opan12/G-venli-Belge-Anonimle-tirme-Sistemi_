@@ -48,7 +48,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             }
 
             // NLP ile alan belirleme
-            var articleArea = DetermineArticleArea(filePath); // Bu metod NLP ile alanı belirleyecek
+            var articleArea = DetermineArticleAreas(filePath); // Bu metod NLP ile alanı belirleyecek
 
             // Makale bilgilerini veritabanına kaydedin
             var article = new Makale
@@ -60,7 +60,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 Content = "",
                 AnonymizedContent = "",
                 ArticleDate = DateTime.Now,
-                Alan = articleArea // Alanı kaydedin
+                Alan = string.Join(", ", articleArea) // Liste elemanlarını virgülle ayırarak bir dize oluştur
             };
 
             _context.Articles.Add(article);
@@ -141,40 +141,46 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(new { TrackingNumber = article.TrackingNumber });
         }
-        private string DetermineArticleArea(string filePath)
+        private List<string> DetermineArticleAreas(string filePath)
         {
-            // Dosya içeriğini oku
+            // Read the content of the file
             string fileContent;
             using (var reader = new StreamReader(filePath))
             {
                 fileContent = reader.ReadToEnd();
             }
 
-            // Alan belirlemek için anahtar kelimeleri tanımlayın
+            // Define keywords for each area
             var keywords = new Dictionary<string, List<string>>
     {
-        { "Biology", new List<string> { "cell", "organism", "ecosystem", "genetics" } },
-        { "Physics", new List<string> { "force", "energy", "mass", "quantum" } },
-        { "Medicine", new List<string> { "health", "treatment", "disease", "symptom" } },
-        { "Artificial Intelligence", new List<string> { "machine learning", "neural network", "algorithm", "data" } },
-        { "Chemistry", new List<string> { "reaction", "molecule", "compound", "element" } },
-        { "Mathematics", new List<string> { "calculus", "algebra", "geometry", "theorem" } },
-        { "Astronomy", new List<string> { "planet", "star", "galaxy", "universe" } }
+        { "Artificial Intelligence", new List<string> { "deep learning", "natural language processing", "computer vision", "generative AI" } },
+        { "Human-Computer Interaction", new List<string> { "brain-computer interfaces", "user experience design", "augmented reality", "virtual reality" } },
+        { "Big Data and Data Analytics", new List<string> { "data mining", "data visualization", "Hadoop", "Spark", "time series analysis" } },
+        { "Cybersecurity", new List<string> { "encryption algorithms", "secure software development", "network security", "authentication systems", "digital forensics" } },
+        { "Networking and Distributed Systems", new List<string> { "5G", "cloud computing", "blockchain", "P2P systems", "decentralized systems" } }
     };
 
-            // İçerikte anahtar kelimeleri kontrol et ve alanı belirle
+            // List to hold found areas
+            var foundAreas = new List<string>();
+
+            // Check the content for keywords and determine the areas
             foreach (var keyword in keywords)
             {
                 foreach (var term in keyword.Value)
                 {
                     if (fileContent.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        return keyword.Key; // Anahtar kelime bulunduğunda alanı döndür
+                        if (!foundAreas.Contains(keyword.Key))
+                        {
+                            foundAreas.Add(keyword.Key); // Add the area if a keyword is found
+                        }
+                        break; // Break out of the term loop to avoid duplicates for the same area
                     }
                 }
             }
 
-            return "Bilinmeyen Alan"; // Hiçbir anahtar kelime bulunamazsa
+            return foundAreas.Count > 0 ? foundAreas : new List<string> { "Unknown Area" }; // Return found areas or "Unknown Area"
         }
+
     }
 }
