@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 using Güvenli_Belge_Anonimleştirme_Sistemi.Data;
 using iTextSharp.text.pdf.parser;
 using System.IO; // Çakışmayı önlemek için
+using System.Security.Cryptography;
+using System.Text;
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
@@ -24,7 +26,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _context = context;
         }
 
-        [HttpPost("anonimize/{trackingNumber}")]
+
+    [HttpPost("anonimize/{trackingNumber}")]
         public async Task<IActionResult> AnonimizeMakale(string trackingNumber)
         {
             var makale = await _context.Articles.FirstOrDefaultAsync(m => m.TrackingNumber == trackingNumber);
@@ -64,12 +67,14 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Dosyayı sunucuda kaydet
             await System.IO.File.WriteAllBytesAsync(anonymizedFilePath, anonymizedPdfBytes);
 
-            // Makale modeline anonimleştirilmiş dosyanın yolunu kaydet (veritabanına kaydetmek istersen)
-            makale.AnonymizedContent = anonymizedFilePath;
+            // Dosya yolunu AES ile şifrele
+            var aesHelper = new AesEncryptionHelper("1234567890123456"); // 16 byte'lık bir anahtar kullan
+            makale.AnonymizedContent = aesHelper.Encrypt(anonymizedFilePath);
             await _context.SaveChangesAsync();
 
             return File(anonymizedPdfBytes, "application/pdf", anonymizedFileName);
         }
+
         [HttpGet("get-anonymized-pdf/{trackingNumber}")]
         public IActionResult GetAnonymizedPdf(string trackingNumber)
         {
@@ -103,7 +108,9 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Makale bulunamadı veya henüz yüklenmedi.");
             }
 
-            string filePath = makale.AnonymizedContent;
+            // AES ile şifrelenmiş dosya yolunu çöz
+            var aesHelper = new AesEncryptionHelper("1234567890123456"); // Aynı anahtarı kullan
+            string filePath = aesHelper.Decrypt(makale.AnonymizedContent);
 
             if (!System.IO.File.Exists(filePath))
             {
@@ -113,7 +120,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             byte[] fileBytes = System.IO.File.ReadAllBytes(filePath);
             return File(fileBytes, "application/pdf", System.IO.Path.GetFileName(filePath));
         }
-
 
         private byte[] CreateAnonymizedPdf(string originalPdfPath)
         {
