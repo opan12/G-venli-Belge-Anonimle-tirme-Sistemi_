@@ -36,21 +36,34 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Return the list of articles
             return Ok(articles);
         }
+        public class ReviewerViewModel
+        {
+            public string Alan { get; set; } // Sadece Alan adı
+        }
+
 
         [HttpPost("add")]
-        public async Task<IActionResult> AddReviewer([FromBody] Reviewer reviewer)
+        public async Task<IActionResult> AddReviewer([FromBody] ReviewerViewModel reviewerViewModel)
         {
-            if (reviewer == null || string.IsNullOrEmpty(reviewer.Alan))
+            if (reviewerViewModel == null || string.IsNullOrEmpty(reviewerViewModel.Alan))
             {
                 return BadRequest("Hakem bilgileri geçersiz.");
             }
+
+            // ReviewerViewModel'den Reviewer modeline dönüştürme
+            var reviewer = new Reviewer
+            {
+                Alan = reviewerViewModel.Alan
+            };
 
             // Hakemi veritabanına ekle
             _context.Reviewers.Add(reviewer);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetReviewerById), new { id = reviewer.Id }, reviewer);
+            // Başarılı ekleme sonrası 201 Created dönüyoruz.
+            return CreatedAtAction(nameof(AddReviewer), new { alan = reviewer.Alan }, reviewer);
         }
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetReviewerById(int id)

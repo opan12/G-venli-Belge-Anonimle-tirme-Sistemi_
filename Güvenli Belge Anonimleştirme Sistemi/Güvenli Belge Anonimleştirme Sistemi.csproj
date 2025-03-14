@@ -14,6 +14,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Catalyst" Version="1.0.54164" />
+    <PackageReference Include="Catalyst.Models.English" Version="1.0.30952" />
     <PackageReference Include="itext7.pdfocr.api" Version="4.0.1" />
     <PackageReference Include="iTextSharp" Version="5.5.13.4" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.13" />

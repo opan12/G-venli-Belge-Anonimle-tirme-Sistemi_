@@ -26,35 +26,41 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         [HttpPost("assign")]
         public async Task<IActionResult> AssignReviewer([FromBody] YorumViewModel model)
         {
-            // Modelin doğrulanması
-            if (model.ArticleId <= 0 || model.ReviewerId <= 0)
+            try
             {
-                return BadRequest("Geçersiz makale veya hakem kimliği.");
+                if (model.ArticleId <= 0 || model.ReviewerId <= 0)
+                {
+                    return BadRequest("Geçersiz makale veya hakem kimliği.");
+                }
+
+                var article = await _context.Articles.FindAsync(model.ArticleId);
+                var reviewer = await _context.Reviewers.FindAsync(model.ReviewerId);
+
+                if (article == null || reviewer == null)
+                {
+                    return NotFound("Makale veya hakem bulunamadı.");
+                }
+
+                var yorum = new Yorum
+                {
+                    MakaleId = model.ArticleId,
+                    ReviewerId = model.ReviewerId,
+                    ReviewDate = DateTime.Now,
+                    Comments = "",
+                };
+
+                _context.reviews.Add(yorum);
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[INFO] {yorum.ReviewerId} hakem olarak atandı!"); // Log Ekle
+
+                return Ok(new { message = "Hakem başarıyla atandı.", AssignmentDate = yorum.ReviewDate });
             }
-
-            // Makaleyi ve hakemi bul
-            var article = await _context.Articles.FindAsync(model.ArticleId);
-            var reviewer = await _context.Reviewers.FindAsync(model.ReviewerId);
-
-            if (article == null || reviewer == null)
+            catch (Exception ex)
             {
-                return NotFound("Makale veya hakem bulunamadı.");
+                Console.WriteLine($"[ERROR] {ex.Message}");
+                return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
-
-            // Yeni bir yorum oluştur ve atamayı kaydet
-            var yorum = new Yorum
-            {
-                ArticleId = model.ArticleId,
-                ReviewerId = model.ReviewerId,
-                ReviewDate = DateTime.Now, // Atama tarihi
-                Comments = "",
-            };
-
-            _context.reviews.Add(yorum);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "Hakem başarıyla atandı.", AssignmentDate = yorum.ReviewDate });
         }
-
     }
 }

@@ -12,6 +12,7 @@ using iTextSharp.text.pdf.parser;
 using System.IO; // Çakışmayı önlemek için
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
@@ -26,8 +27,62 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _context = context;
         }
 
+        private byte[] CreateAnonymizedPdf(string originalPdfPath)
+        {
+            using (var reader = new PdfReader(originalPdfPath))
+            {
+                var outputStream = new MemoryStream();
+                using (var stamper = new PdfStamper(reader, outputStream))
+                {
+                    int totalPages = reader.NumberOfPages;
 
-    [HttpPost("anonimize/{trackingNumber}")]
+                    for (int pageNum = 1; pageNum <= totalPages; pageNum++)
+                    {
+                        // Sayfadaki mevcut metni çıkar
+                        var pageContent = ExtractTextFromPdfPage(reader, pageNum);
+
+                        // Python betiğini çalıştırarak anonimleştirilmiş metni al
+                        var anonymizedContent = RunPythonScript(pageContent);
+
+                        // Sayfanın içeriğini anonimleştir
+                        var contentByte = stamper.GetOverContent(pageNum);
+                        contentByte.BeginText();
+                        contentByte.SetFontAndSize(BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 12);
+                        contentByte.ShowTextAligned(PdfContentByte.ALIGN_LEFT, anonymizedContent, 36, 800, 0);
+                        contentByte.EndText();
+                    }
+
+                    stamper.Close();
+                }
+
+                return outputStream.ToArray();
+            }
+        }
+
+        private string RunPythonScript(string inputText)
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe", // Python'un tam yolu
+                Arguments = $"\"C:\\Users\\Casper\\source\\repos\\Güvenli Belge Anonimleştirme Sistemi\\Güvenli Belge Anonimleştirme Sistemi\\anonymize.py\" \"{inputText}\"", // Betik yolunu burada belirtin
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using (var process = Process.Start(startInfo))
+            {
+                using (var reader = process.StandardOutput)
+                {
+                    string result = reader.ReadToEnd();
+                    process.WaitForExit();
+                    return result;
+                }
+            }
+        }
+
+
+        [HttpPost("anonimize/{trackingNumber}")]
         public async Task<IActionResult> AnonimizeMakale(string trackingNumber)
         {
             var makale = await _context.Articles.FirstOrDefaultAsync(m => m.TrackingNumber == trackingNumber);
@@ -48,31 +103,73 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("PDF dosyası mevcut değil.");
             }
 
-            // Anonimleştirilmiş dosyanın kaydedileceği klasörü belirle
+            // Anonimleştirilmiş dosyanın kaydedileceği klasör
             string directoryPath = System.IO.Path.Combine("wwwroot", "uploads", "anonimized");
 
-            // Eğer klasör yoksa oluştur
-            if (!System.IO.Directory.Exists(directoryPath))
+            if (!Directory.Exists(directoryPath))
             {
-                System.IO.Directory.CreateDirectory(directoryPath);
+                Directory.CreateDirectory(directoryPath);
             }
 
-            // Yeni dosyanın adını oluştur
+            // Yeni dosya adı
             string anonymizedFileName = $"anonimized_{trackingNumber}.pdf";
             string anonymizedFilePath = System.IO.Path.Combine(directoryPath, anonymizedFileName);
+            // Python scriptini çalıştır ve anonimleştirilmiş dosyayı üret
+            var result = await RunPythonScript(filePath, anonymizedFilePath);
 
-            // Anonimleştirilmiş PDF'yi oluştur
-            byte[] anonymizedPdfBytes = await Task.Run(() => CreateAnonymizedPdf(filePath));
-
-            // Dosyayı sunucuda kaydet
-            await System.IO.File.WriteAllBytesAsync(anonymizedFilePath, anonymizedPdfBytes);
+            if (!result)
+            {
+                return BadRequest("Anonimleştirme işlemi başarısız oldu.");
+            }
 
             // Dosya yolunu AES ile şifrele
-            var aesHelper = new AesEncryptionHelper("1234567890123456"); // 16 byte'lık bir anahtar kullan
+            var aesHelper = new AesEncryptionHelper("1234567890123456"); // 16-byte key
             makale.AnonymizedContent = aesHelper.Encrypt(anonymizedFilePath);
             await _context.SaveChangesAsync();
 
-            return File(anonymizedPdfBytes, "application/pdf", anonymizedFileName);
+            return File(await System.IO.File.ReadAllBytesAsync(anonymizedFilePath), "application/pdf", anonymizedFileName);
+        }
+
+        // Python scriptini çalıştırma fonksiyonu
+        private async Task<bool> RunPythonScript(string inputFilePath, string outputFilePath)
+        {
+            try
+            {
+                string pythonScript = @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
+                string pythonExe = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe";
+
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = pythonExe,
+                    Arguments = $"\"{pythonScript}\" \"{inputFilePath}\" \"{outputFilePath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using (var process = new Process { StartInfo = startInfo })
+                {
+                    process.Start();
+                    string output = await process.StandardOutput.ReadToEndAsync();
+                    string error = await process.StandardError.ReadToEndAsync();
+                    await process.WaitForExitAsync();
+
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        Console.WriteLine("Python Hatası: " + error);
+                        return false;
+                    }
+
+                    Console.WriteLine("Python Çıktısı: " + output);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Hata: " + ex.Message);
+                return false;
+            }
         }
 
         [HttpGet("get-anonymized-pdf/{trackingNumber}")]
@@ -121,47 +218,14 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             return File(fileBytes, "application/pdf", System.IO.Path.GetFileName(filePath));
         }
 
-        private byte[] CreateAnonymizedPdf(string originalPdfPath)
-        {
-            using (var reader = new PdfReader(originalPdfPath))
-            {
-                // Yeni PDF dosyasını oluşturmak için bellek akışı kullanıyoruz
-                var outputStream = new MemoryStream();
-                using (var stamper = new PdfStamper(reader, outputStream))
-                {
-                    // Sayfa sayfa anonimleştir
-                    int totalPages = reader.NumberOfPages;
-
-                    for (int pageNum = 1; pageNum <= totalPages; pageNum++)
-                    {
-                        // Sayfadaki mevcut metni çıkar
-                        var pageContent = ExtractTextFromPdfPage(reader, pageNum);
-
-                        // Anonimleştirilmiş metni oluştur
-                        var anonymizedContent = AnonymizeText(pageContent);
-
-                        // Sayfanın içeriğini anonimleştir
-                        var contentByte = stamper.GetOverContent(pageNum);
-
-                        // Burada metni anonimleştirilmiş haliyle ekleyebiliriz
-                        contentByte.BeginText();
-                        contentByte.SetFontAndSize(BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED), 12);
-                        contentByte.ShowTextAligned(PdfContentByte.ALIGN_LEFT, anonymizedContent, 36, 800, 0);
-                        contentByte.EndText();
-                    }
-
-                    stamper.Close();
-                }
-
-                return outputStream.ToArray();
-            }
-        }
+      
 
         // PDF sayfasından metin çıkarma
         private string ExtractTextFromPdfPage(PdfReader reader, int pageNum)
         {
             return PdfTextExtractor.GetTextFromPage(reader, pageNum);
         }
+
 
         // Metni anonimleştirme (e-posta, yazar isimleri vb.)
         private string AnonymizeText(string inputText)

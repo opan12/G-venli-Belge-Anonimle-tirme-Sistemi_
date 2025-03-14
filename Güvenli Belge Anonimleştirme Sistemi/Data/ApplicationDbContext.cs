@@ -36,7 +36,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Data
             modelBuilder.Entity<User>();
 
          
-        }
+         }
 
 
 

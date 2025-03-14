@@ -87,7 +87,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         public async Task<IActionResult> GetReviews(int articleId)
         {
             var reviews = await _context.reviews
-                .Where(r => r.ArticleId == articleId)
+                .Where(r => r.MakaleId == articleId)
                 .Select(r => new
                 {
                     ReviewerId = r.ReviewerId,
@@ -152,13 +152,104 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             // Define keywords for each area
             var keywords = new Dictionary<string, List<string>>
-    {
-        { "Artificial Intelligence", new List<string> { "deep learning", "natural language processing", "computer vision", "generative AI" } },
-        { "Human-Computer Interaction", new List<string> { "brain-computer interfaces", "user experience design", "augmented reality", "virtual reality" } },
-        { "Big Data and Data Analytics", new List<string> { "data mining", "data visualization", "Hadoop", "Spark", "time series analysis" } },
-        { "Cybersecurity", new List<string> { "encryption algorithms", "secure software development", "network security", "authentication systems", "digital forensics" } },
-        { "Networking and Distributed Systems", new List<string> { "5G", "cloud computing", "blockchain", "P2P systems", "decentralized systems" } }
-    };
+{
+    { "Artificial Intelligence", new List<string>
+        {
+            "deep learning", "natural language processing", "computer vision", "generative AI",
+            "reinforcement learning", "self-supervised learning", "Bayesian networks", "transformer models",
+            "meta-learning", "explainable AI", "federated learning", "quantum AI"
+        }
+    },
+
+    { "Human-Computer Interaction", new List<string>
+        {
+            "brain-computer interfaces", "user experience design", "augmented reality", "virtual reality",
+            "haptic feedback", "gesture recognition", "adaptive interfaces", "speech recognition",
+            "wearable computing", "eye tracking", "tactile interfaces", "affective computing"
+        }
+    },
+
+    { "Big Data and Data Analytics", new List<string>
+        {
+            "data mining", "data visualization", "Hadoop", "Spark", "time series analysis",
+            "data warehousing", "dimensionality reduction", "stream processing", "clustering algorithms",
+            "anomaly detection", "graph analytics", "real-time analytics", "feature engineering", "NoSQL databases"
+        }
+    },
+
+    { "Cybersecurity", new List<string>
+        {
+            "encryption algorithms", "secure software development", "network security", "authentication systems",
+            "digital forensics", "penetration testing", "zero-trust security", "blockchain security",
+            "AI-driven cybersecurity", "identity and access management", "homomorphic encryption", "firewall technologies",
+            "secure boot", "quantum cryptography"
+        }
+    },
+
+    { "Networking and Distributed Systems", new List<string>
+        {
+            "5G", "cloud computing", "blockchain", "P2P systems", "decentralized systems",
+            "edge computing", "content delivery networks", "software-defined networking", "mesh networks",
+            "Internet of Things (IoT)", "fog computing", "network slicing", "container orchestration", "serverless computing"
+        }
+    },
+
+    { "Quantum Computing", new List<string>
+        {
+            "quantum algorithms", "quantum cryptography", "quantum entanglement", "superconducting qubits",
+            "quantum supremacy", "quantum annealing", "Shor's algorithm", "Grover's algorithm",
+            "quantum teleportation", "decoherence", "quantum machine learning"
+        }
+    },
+
+    { "Robotics and Automation", new List<string>
+        {
+            "autonomous vehicles", "swarm robotics", "robot perception", "robotic vision",
+            "industrial automation", "soft robotics", "SLAM (Simultaneous Localization and Mapping)",
+            "kinematics and dynamics", "bio-inspired robotics", "exoskeletons", "AI-powered robotics"
+        }
+    },
+
+    { "Biotechnology and Bioinformatics", new List<string>
+        {
+            "genome sequencing", "protein structure prediction", "CRISPR", "systems biology",
+            "metagenomics", "phylogenetics", "epigenetics", "drug discovery", "molecular docking",
+            "synthetic biology", "biological network analysis", "microbiome studies"
+        }
+    },
+
+    { "Renewable Energy and Sustainability", new List<string>
+        {
+            "solar energy", "wind energy", "smart grids", "energy storage systems",
+            "hydrogen fuel cells", "sustainable architecture", "carbon footprint reduction",
+            "wave and tidal energy", "biodegradable materials", "waste-to-energy conversion"
+        }
+    },
+
+    { "Internet of Things (IoT)", new List<string>
+        {
+            "smart sensors", "wearable devices", "edge AI", "smart homes",
+            "industrial IoT", "real-time monitoring", "LoRaWAN", "Zigbee", "IoT security",
+            "embedded systems", "IoT analytics"
+        }
+    },
+
+    { "Natural Sciences and Mathematics", new List<string>
+        {
+            "graph theory", "topology", "chaos theory", "dynamical systems",
+            "complex systems", "fractals", "number theory", "fluid dynamics",
+            "computational physics", "quantum field theory", "astrophysics"
+        }
+    },
+
+    { "Finance and FinTech", new List<string>
+        {
+            "cryptocurrency", "blockchain in finance", "decentralized finance (DeFi)", "algorithmic trading",
+            "quantitative finance", "risk modeling", "credit scoring", "automated wealth management",
+            "digital payments", "regulatory technology (RegTech)", "anti-money laundering (AML)"
+        }
+    }
+};
 
             // List to hold found areas
             var foundAreas = new List<string>();

@@ -3,15 +3,16 @@
     public class Yorum
     {
         public int Id { get; set; } // Her incelemenin benzersiz kimliği
-        public int ArticleId { get; set; } // İncelenen makalenin kimliği
+
+        public int MakaleId { get; set; } // Makale kimliği
         public Makale Makale { get; set; } // Makale ilişkisi
 
         public int ReviewerId { get; set; } // Hakemin kimliği
-        public  Reviewer Reviewer { get; set; }//den
+        public Reviewer Reviewer { get; set; } // Hakem ilişkisi
 
         public string Comments { get; set; } // Hakemin yorumu
-        public DateTime ReviewDate { get; set;}
-     
+        public DateTime ReviewDate { get; set; } // İnceleme tarihi
     }
+
 
 }
