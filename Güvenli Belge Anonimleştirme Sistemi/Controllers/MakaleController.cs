@@ -135,8 +135,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         {
             try
             {
-                string pythonScript = @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
-                string pythonExe = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe";
+                string pythonScript = "anonymize.py";
+                string pythonExe = "python";
 
                 var startInfo = new ProcessStartInfo
                 {
