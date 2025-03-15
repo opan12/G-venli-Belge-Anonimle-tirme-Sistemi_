@@ -30,44 +30,45 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("No file uploaded.");
             }
 
-            // uploads klasörünün var olup olmadığını kontrol et, yoksa oluştur
-            var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+            // "uploads" klasörünü oluştur
+            var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
             if (!Directory.Exists(uploadDirectory))
             {
-                Directory.CreateDirectory(uploadDirectory); // uploads klasörünü oluştur
+                Directory.CreateDirectory(uploadDirectory);
             }
 
             var fileExtension = Path.GetExtension(model.PdfFile.FileName);
-            var fileName = $"{Guid.NewGuid()}{fileExtension}";
-            var filePath = Path.Combine(uploadDirectory, fileName);
+            var fileName = $"{Guid.NewGuid()}{fileExtension}"; // Rastgele dosya adı oluştur
+            var filePath = Path.Combine(uploadDirectory, fileName); // Tam dosya yolu
 
-            // Dosyayı kaydedin
+            // Dosyayı kaydet
             using (var fileStream = new FileStream(filePath, FileMode.Create))
             {
                 await model.PdfFile.CopyToAsync(fileStream);
             }
 
             // NLP ile alan belirleme
-            var articleArea = DetermineArticleAreas(filePath); // Bu metod NLP ile alanı belirleyecek
+            var articleArea = DetermineArticleAreas(filePath);
 
-            // Makale bilgilerini veritabanına kaydedin
+            // Veritabanına TAM DOSYA YOLUNU kaydet
             var article = new Makale
             {
                 AuthorEmail = model.AuthorEmail,
-                ContentPath = filePath, // Dosyanın tam yolunu saklıyoruz
+                ContentPath = filePath, // TAM DOSYA YOLU KAYDEDİLİYOR
                 TrackingNumber = Guid.NewGuid().ToString(),
                 Status = "Uploaded",
                 Content = "",
                 AnonymizedContent = "",
                 ArticleDate = DateTime.Now,
-                Alan = string.Join(", ", articleArea) // Liste elemanlarını virgülle ayırarak bir dize oluştur
+                Alan = string.Join(", ", articleArea)
             };
 
             _context.Articles.Add(article);
             await _context.SaveChangesAsync();
 
-            return Ok(new { TrackingNumber = article.TrackingNumber });
+            return Ok(new { TrackingNumber = article.TrackingNumber, FilePath = filePath });
         }
+
 
         [HttpGet("status/{trackingNumber}")]
         public async Task<IActionResult> GetArticleStatus(string trackingNumber)

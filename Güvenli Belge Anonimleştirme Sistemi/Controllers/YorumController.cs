@@ -42,7 +42,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             public int ReviewerId { get; set; } // Yorumu yapan hakem
             public string Comments { get; set; } // Yorum içeriği
         }
-
         [HttpPost("yorum-ekle")]
         public async Task<IActionResult> UpdateReview([FromBody] YorumViewModel1 model)
         {
@@ -60,8 +59,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             // Var olan yorumu getir
             var mevcutYorum = await _context.reviews
-                .Where(y => y.MakaleId == model.MakaleId && y.ReviewerId == model.ReviewerId)
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(y => y.MakaleId == model.MakaleId && y.ReviewerId == model.ReviewerId);
 
             if (mevcutYorum == null)
             {
@@ -71,48 +69,45 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Yorumu güncelle
             mevcutYorum.Comments = model.Comments;
             mevcutYorum.ReviewDate = DateTime.UtcNow;
-
             await _context.SaveChangesAsync();
 
             // PDF Güncelleme İşlemi
-            string pdfPath = makale.ContentPath; // Makale dosya yolu
+            string pdfPath = makale.ContentPath;
             string updatedPdfPath = Path.Combine(Path.GetDirectoryName(pdfPath), $"Updated_{Path.GetFileName(pdfPath)}");
 
             try
             {
-                using (var existingPdfStream = new FileStream(pdfPath, FileMode.Open, FileAccess.Read))
+                using (var existingPdfStream = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (var newPdfStream = new FileStream(updatedPdfPath, FileMode.Create, FileAccess.Write))
+                using (var reader = new PdfReader(existingPdfStream))
+                using (var document = new Document())
+                using (var writer = new PdfCopy(document, newPdfStream))
                 {
-                    var reader = new PdfReader(existingPdfStream);
-                    var document = new Document();
-                    var writer = new PdfCopy(document, newPdfStream);
                     document.Open();
 
                     // Mevcut sayfaları kopyala
                     for (int i = 1; i <= reader.NumberOfPages; i++)
                     {
-                        var page = writer.GetImportedPage(reader, i);
-                        writer.AddPage(page);
+                        writer.AddPage(writer.GetImportedPage(reader, i));
                     }
 
-                    // Yeni sayfa ekleyerek yorumları güncelle
+                    // Yeni sayfa ekleyerek yorumları ekle
                     document.NewPage();
                     var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-                    var paragraph = new Paragraph("Güncellenmiş Yorumlar", titleFont);
-                    document.Add(paragraph);
+                    var commentFont = FontFactory.GetFont(FontFactory.HELVETICA, 12);
 
-                    // Güncellenmiş yorumları ekle
-                    var yorumlar = _context.reviews
+                    document.Add(new Paragraph("\n--- Güncellenmiş Yorumlar ---\n", titleFont));
+
+                    var yorumlar = await _context.reviews
                         .Where(y => y.MakaleId == model.MakaleId)
                         .OrderBy(y => y.ReviewDate)
-                        .ToList();
+                        .ToListAsync();
 
-                    var commentFont = FontFactory.GetFont(FontFactory.HELVETICA, 12);
                     foreach (var yorum in yorumlar)
                     {
                         document.Add(new Paragraph($"Yorum: {yorum.Comments}", commentFont));
                         document.Add(new Paragraph($"Tarih: {yorum.ReviewDate:yyyy-MM-dd HH:mm}", commentFont));
-                        document.Add(new Paragraph("------------------------------------------------", commentFont));
+                        document.Add(new Paragraph("\n------------------------------------\n", commentFont));
                     }
 
                     document.Close();
@@ -121,16 +116,27 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 }
 
                 // Güncellenmiş PDF'yi orijinalin yerine koy
-                System.IO.File.Delete(pdfPath);
+                if (System.IO.File.Exists(pdfPath))
+                {
+                    System.IO.File.Delete(pdfPath);
+                }
+
                 System.IO.File.Move(updatedPdfPath, pdfPath);
+
+                // Güncellenmiş PDF'yi indirilebilir olarak döndür
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(pdfPath);
+                return File(fileBytes, "application/pdf", Path.GetFileName(pdfPath));
+            }
+            catch (IOException ioEx)
+            {
+                return StatusCode(500, $"PDF güncellenirken dosya hatası oluştu: {ioEx.Message}");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "PDF güncellenirken hata oluştu: " + ex.Message);
+                return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
             }
-
-            return Ok("Yorum başarıyla güncellendi ve PDF'ye yansıtıldı.");
         }
+
 
         public class YorumViewModel
         {
