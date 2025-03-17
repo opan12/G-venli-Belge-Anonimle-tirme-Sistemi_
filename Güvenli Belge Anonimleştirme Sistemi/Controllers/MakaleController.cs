@@ -64,7 +64,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             var startInfo = new ProcessStartInfo
             {
                 FileName = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe", // Python'un tam yolu
-                Arguments =  @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py",
+                Arguments =  @"C:\Users\Casper\source\re,pos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py",
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
