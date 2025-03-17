@@ -64,7 +64,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             var startInfo = new ProcessStartInfo
             {
                 FileName = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe", // Python'un tam yolu
-                Arguments = $"\"C:\\Users\\Casper\\source\\repos\\Güvenli Belge Anonimleştirme Sistemi\\Güvenli Belge Anonimleştirme Sistemi\\anonymize.py\" \"{inputText}\"", // Betik yolunu burada belirtin
+                Arguments =  @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py",
                 RedirectStandardOutput = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
@@ -123,8 +123,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             }
 
             // Dosya yolunu AES ile şifrele
-            var aesHelper = new AesEncryptionHelper("1234567890123456"); // 16-byte key
-            makale.AnonymizedContent = aesHelper.Encrypt(anonymizedFilePath);
             await _context.SaveChangesAsync();
 
             return File(await System.IO.File.ReadAllBytesAsync(anonymizedFilePath), "application/pdf", anonymizedFileName);
