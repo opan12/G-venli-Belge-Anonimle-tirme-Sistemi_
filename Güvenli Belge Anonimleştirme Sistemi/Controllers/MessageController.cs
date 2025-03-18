@@ -20,10 +20,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         [HttpPost("send")]
         public async Task<IActionResult> SendMessage([FromBody] MessageModel model)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
 
             var message = new Message
             {

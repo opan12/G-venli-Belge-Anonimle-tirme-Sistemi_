@@ -50,14 +50,12 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("Yorum bilgileri eksik.");
             }
 
-            // Makale olup olmadığını kontrol et
             var makale = await _context.Articles.FindAsync(model.MakaleId);
             if (makale == null)
             {
                 return NotFound("Makale bulunamadı.");
             }
 
-            // Var olan yorumu getir
             var mevcutYorum = await _context.reviews
                 .FirstOrDefaultAsync(y => y.MakaleId == model.MakaleId && y.ReviewerId == model.ReviewerId);
 
@@ -66,12 +64,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Bu makale için var olan bir yorum bulunamadı.");
             }
 
-            // Yorumu güncelle
             mevcutYorum.Comments = model.Comments;
             mevcutYorum.ReviewDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
-            // PDF Güncelleme İşlemi
             string pdfPath = makale.ContentPath;
             string updatedPdfPath = Path.Combine(Path.GetDirectoryName(pdfPath), $"Updated_{Path.GetFileName(pdfPath)}");
 
@@ -80,52 +76,44 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 using (var existingPdfStream = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                 using (var newPdfStream = new FileStream(updatedPdfPath, FileMode.Create, FileAccess.Write))
                 using (var reader = new PdfReader(existingPdfStream))
-                using (var document = new Document())
-                using (var writer = new PdfCopy(document, newPdfStream))
+                using (var stamper = new PdfStamper(reader, newPdfStream))
                 {
-                    document.Open();
-
-                    // Mevcut sayfaları kopyala
-                    for (int i = 1; i <= reader.NumberOfPages; i++)
-                    {
-                        writer.AddPage(writer.GetImportedPage(reader, i));
-                    }
-
-                    // Yeni sayfa ekleyerek yorumları ekle
-                    document.NewPage();
-                    var titleFont = FontFactory.GetFont(FontFactory.HELVETICA_BOLD, 14);
-                    var commentFont = FontFactory.GetFont(FontFactory.HELVETICA, 12);
-
-                    document.Add(new Paragraph("\n--- Güncellenmiş Yorumlar ---\n", titleFont));
-
                     var yorumlar = await _context.reviews
                         .Where(y => y.MakaleId == model.MakaleId)
                         .OrderBy(y => y.ReviewDate)
                         .ToListAsync();
 
+                    PdfContentByte canvas = stamper.GetOverContent(reader.NumberOfPages);
+                    BaseFont baseFont = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+                    canvas.BeginText();
+                    canvas.SetFontAndSize(baseFont, 12);
+                    canvas.SetTextMatrix(50, 100);
+
+                    canvas.ShowText("--- Güncellenmiş Yorumlar ---");
+                    int yOffset = 80;
+
                     foreach (var yorum in yorumlar)
                     {
-                        document.Add(new Paragraph($"Yorum: {yorum.Comments}", commentFont));
-                        document.Add(new Paragraph($"Tarih: {yorum.ReviewDate:yyyy-MM-dd HH:mm}", commentFont));
-                        document.Add(new Paragraph("\n------------------------------------\n", commentFont));
+                        canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yorum.Comments}", 50, yOffset, 0);
+                        yOffset -= 20;
+                        canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, yOffset, 0);
+                        yOffset -= 30;
                     }
 
-                    document.Close();
-                    writer.Close();
-                    reader.Close();
+                    canvas.EndText();
+                    stamper.Close();
                 }
 
-                // Güncellenmiş PDF'yi orijinalin yerine koy
-                if (System.IO.File.Exists(pdfPath))
+                string newSavePath = Path.Combine("wwwroot", "uploads", "updated", Path.GetFileName(updatedPdfPath));
+                if (!Directory.Exists(Path.GetDirectoryName(newSavePath)))
                 {
-                    System.IO.File.Delete(pdfPath);
+                    Directory.CreateDirectory(Path.GetDirectoryName(newSavePath));
                 }
 
-                System.IO.File.Move(updatedPdfPath, pdfPath);
+                System.IO.File.Move(updatedPdfPath, newSavePath, true);
 
-                // Güncellenmiş PDF'yi indirilebilir olarak döndür
-                var fileBytes = await System.IO.File.ReadAllBytesAsync(pdfPath);
-                return File(fileBytes, "application/pdf", Path.GetFileName(pdfPath));
+                var fileBytes = await System.IO.File.ReadAllBytesAsync(newSavePath);
+                return File(fileBytes, "application/pdf", Path.GetFileName(newSavePath));
             }
             catch (IOException ioEx)
             {
@@ -136,7 +124,75 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
             }
         }
+        [HttpPost("change-reviewer")]
+        public async Task<IActionResult> ChangeReviewer([FromBody] YorumViewModel model)
+        {
+            try
+            {
+                if (model.ArticleId <= 0 || model.ReviewerId <= 0)
+                {
+                    return BadRequest("Geçersiz makale veya hakem kimliği.");
+                }
 
+                var article = await _context.Articles.FindAsync(model.ArticleId);
+                var newReviewer = await _context.Reviewers.FindAsync(model.ReviewerId);
+
+                if (article == null || newReviewer == null)
+                {
+                    return NotFound("Makale veya hakem bulunamadı.");
+                }
+
+                // Mevcut atamayı kontrol et
+                var existingReview = await _context.reviews
+                    .FirstOrDefaultAsync(r => r.MakaleId == model.ArticleId);
+
+                if (existingReview != null)
+                {
+                    // Eski hakem bilgisi
+                    int oldReviewerId = existingReview.ReviewerId;
+                    existingReview.ReviewerId = model.ReviewerId;
+                    existingReview.ReviewDate = DateTime.Now;
+
+                    await _context.SaveChangesAsync();
+
+                    Console.WriteLine($"[INFO] Hakem değiştirildi: {oldReviewerId} → {model.ReviewerId}");
+
+                    return Ok(new
+                    {
+                        message = "Hakem başarıyla değiştirildi.",
+                        OldReviewerId = oldReviewerId,
+                        NewReviewerId = model.ReviewerId,
+                        ChangeDate = existingReview.ReviewDate
+                    });
+                }
+
+                // Eğer makaleye daha önce hakem atanmamışsa yeni atama yap
+                var newReview = new Yorum
+                {
+                    MakaleId = model.ArticleId,
+                    ReviewerId = model.ReviewerId,
+                    ReviewDate = DateTime.Now,
+                    Comments = "",
+                };
+
+                _context.reviews.Add(newReview);
+                await _context.SaveChangesAsync();
+
+                Console.WriteLine($"[INFO] Yeni hakem atandı: {model.ReviewerId}");
+
+                return Ok(new
+                {
+                    message = "Yeni hakem başarıyla atandı.",
+                    ReviewerId = model.ReviewerId,
+                    AssignmentDate = newReview.ReviewDate
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] {ex.Message}");
+                return StatusCode(500, $"Sunucu hatası: {ex.Message}");
+            }
+        }
 
         public class YorumViewModel
         {
