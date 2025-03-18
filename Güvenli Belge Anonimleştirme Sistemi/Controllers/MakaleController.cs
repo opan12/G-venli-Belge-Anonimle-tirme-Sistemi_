@@ -79,6 +79,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     return result;
                 }
             }
+
         }
 
 
@@ -116,6 +117,14 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             string anonymizedFilePath = System.IO.Path.Combine(directoryPath, anonymizedFileName);
             // Python scriptini çalıştır ve anonimleştirilmiş dosyayı üret
             var result = await RunPythonScript(filePath, anonymizedFilePath);
+          
+
+            // Dosyanın gerçekten oluşup oluşmadığını kontrol et
+            if (!System.IO.File.Exists(anonymizedFilePath))
+            {
+                return BadRequest("Anonimleştirme işlemi başarısız oldu. Dosya oluşturulamadı.");
+            }
+
 
             if (!result)
             {
@@ -133,8 +142,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         {
             try
             {
-                string pythonScript = @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
-                string pythonExe = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe";
+                string pythonScript = @"C:\Users\medih\Source\Repos\G-venli-Belge-Anonimle-tirme-Sistemi_\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
+                string pythonExe = @"C:\Users\medih\AppData\Local\Programs\Python\Python311\python.exe";
 
                 var startInfo = new ProcessStartInfo
                 {
@@ -156,7 +165,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     if (!string.IsNullOrEmpty(error))
                     {
                         Console.WriteLine("Python Hatası: " + error);
-                        return false;
+return false;
                     }
 
                     Console.WriteLine("Python Çıktısı: " + output);
