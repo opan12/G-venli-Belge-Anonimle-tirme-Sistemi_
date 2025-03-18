@@ -41,7 +41,12 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             public string Alan { get; set; } // Sadece Alan adı
         }
 
-
+        [HttpGet("getAll")]
+        public async Task<ActionResult<IEnumerable<Reviewer>>> GetReviewers()
+        {
+            var reviewers = await _context.Reviewers.ToListAsync();
+            return Ok(reviewers);
+        }
         [HttpPost("add")]
         public async Task<IActionResult> AddReviewer([FromBody] ReviewerViewModel reviewerViewModel)
         {
