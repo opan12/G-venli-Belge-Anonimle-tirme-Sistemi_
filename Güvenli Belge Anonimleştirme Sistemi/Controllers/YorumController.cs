@@ -35,6 +35,29 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(makaleler);
         }
+        [HttpGet("hakem/{reviewerId}")]
+        public async Task<IActionResult> GetYorumlarByReviewer(int reviewerId)
+        {
+            var yorumlar = await (from y in _context.reviews
+                                  join m in _context.Articles on y.MakaleId equals m.Id
+                                  where y.ReviewerId == reviewerId
+                                  select new
+                                  {
+                                      y.Id,
+                                      y.MakaleId,
+                                  //  y.Makale.TrackingNumber,
+                                      y.Comments,
+                                      y.ReviewDate
+                                  })
+                                  .ToListAsync();
+
+            if (!yorumlar.Any())
+            {
+                return NotFound(new { message = "Bu hakeme ait yorum bulunamadı." });
+            }
+
+            return Ok(yorumlar);
+        }
 
         public class YorumViewModel1
         {
