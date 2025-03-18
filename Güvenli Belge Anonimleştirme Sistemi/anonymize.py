@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+﻿# -- coding: utf-8 --
 import fitz  # PyMuPDF
 import re
 import spacy
@@ -19,6 +19,7 @@ except:
     nlp = spacy.load("en_core_web_sm")
 
 def extract_text_between_title_and_abstract(pdf_path):
+    """Makale başlığı ile Abstract arasındaki kısmı çıkarır."""
     doc = fitz.open(pdf_path)
     text = ""
 
@@ -45,10 +46,12 @@ def extract_text_between_title_and_abstract(pdf_path):
     return "\n".join(extracted_lines).strip() if found_abstract else ""
 
 def find_emails(text):
+    """Metindeki e-posta adreslerini bulur."""
     email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
     return re.findall(email_pattern, text)
 
 def find_locations_and_orgs(text):
+    """Metindeki lokasyon ve organizasyon isimlerini tespit eder."""
     doc = nlp(text)
     locations, organizations = set(), set()
 
@@ -65,6 +68,7 @@ def find_locations_and_orgs(text):
     return list(locations), list(organizations)
 
 def find_author_names(text):
+    """Metindeki kişi isimlerini bulur."""
     doc = nlp(text)
     possible_names = set()
     for ent in doc.ents:
@@ -72,21 +76,25 @@ def find_author_names(text):
             possible_names.add(ent.text)
     return list(possible_names)
 
-def mask_pdf_all_pages(pdf_path, output_path, names, emails, locations, organizations):
-    doc = fitz.open(pdf_path)
+def mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations, organizations):
+    """PDF içindeki yazar isimlerini, e-postaları, lokasyonları ve organizasyonları maskeler."""
+    doc = fitz.open(input_pdf_path)
 
     for page in doc:
-        for word_list, label in [(names, ""), (emails, ""), (locations, ""), (organizations, "")]:
+        for word_list, label in [(names, "[İSİM]"), (emails, "[E-POSTA]"), (locations, "[LOKASYON]"), (organizations, "[KURUM]")]:
             for w in word_list:
                 rects = page.search_for(w)
                 for rect in rects:
                     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
                     page.insert_text((rect[0], rect[1]), label, fontsize=12, color=(0, 0, 0))
 
-    doc.save(output_path)
-    print(f" Anonimleştirilmiş PDF kaydedildi: {output_path}")
+    try:
+        doc.save(output_pdf_path)
+        print(f"PDF başarıyla kaydedildi: {output_pdf_path}")
+    except Exception as e:
+        print(f" PDF kaydedilirken hata oluştu: {e}")
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     if len(sys.argv) != 3:
         print("Kullanım: python anonimize.py <input_pdf_path> <output_pdf_path>")
         sys.exit(1)
@@ -95,3 +103,8 @@ if __name__ == "__main__":
     output_pdf_path = sys.argv[2]
 
     text_between = extract_text_between_title_and_abstract(input_pdf_path)
+    emails = find_emails(text_between)
+    names = find_author_names(text_between)
+    locations, organizations = find_locations_and_orgs(text_between)
+
+    mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations, organizations)
