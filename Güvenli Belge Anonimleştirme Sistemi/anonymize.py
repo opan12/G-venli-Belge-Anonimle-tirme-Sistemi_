@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+﻿# -- coding: utf-8 --
 import fitz  # PyMuPDF
 import re
 import spacy
@@ -96,11 +96,11 @@ def anonymize_pdf(input_pdf_path, output_pdf_path):
 
     try:
         doc.save(output_pdf_path)
-        print(f"✅ PDF başarıyla kaydedildi: {output_pdf_path}")
+        print(f" PDF başarıyla kaydedildi: {output_pdf_path}")
     except Exception as e:
-        print(f"❌ PDF kaydedilirken hata oluştu: {e}")
+        print(f" PDF kaydedilirken hata oluştu: {e}")
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     if len(sys.argv) != 3:
         print("Kullanım: python anonimize.py <input_pdf_path> <output_pdf_path>")
         sys.exit(1)
