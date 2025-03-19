@@ -70,28 +70,19 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         }
 
 
-       [HttpPost("update-status")]
-public async Task<IActionResult> UpdateArticleStatus([FromBody] UpdateArticleStatusModel model)
-{
-    if (string.IsNullOrWhiteSpace(model.TrackingNumber) || string.IsNullOrWhiteSpace(model.AuthorEmail))
-    {
-        return BadRequest("Takip numarası ve yazar e-posta adresi gereklidir.");
-    }
+        [HttpGet("status/{trackingNumber}")]
+        public async Task<IActionResult> GetArticleStatus(string trackingNumber,string email)
+        {
+            var article = await _context.Articles
+                .FirstOrDefaultAsync(a => a.TrackingNumber == trackingNumber && a.AuthorEmail== email);
 
-    var article = await _context.Articles
-        .FirstOrDefaultAsync(a => a.TrackingNumber == model.TrackingNumber && a.AuthorEmail == model.AuthorEmail);
+            if (article == null)
+            {
+                return NotFound("Makale bulunamadı.");
+            }
 
-    if (article == null)
-    {
-        return NotFound("Makale bulunamadı veya e-posta adresi eşleşmiyor.");
-    }
-
-    // Durumu güncelle
-    article.Status = model.NewStatus;
-    await _context.SaveChangesAsync();
-
-    return Ok(new { Message = "Makale durumu güncellendi.", NewStatus = article.Status });
-}
+            return Ok(new { Status = article.Status });
+        }
 
         [HttpGet("reviews/{articleId}")]
         public async Task<IActionResult> GetReviews(int articleId)
