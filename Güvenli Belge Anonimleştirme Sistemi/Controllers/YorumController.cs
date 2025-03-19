@@ -79,18 +79,19 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Makale bulunamadı.");
             }
 
-             var mevcutYorum = await _context.reviews
-                  .FirstOrDefaultAsync(y => y.MakaleId == model.MakaleId && y.ReviewerId == model.ReviewerId);
+            // Yeni yorumu ekle
+            var yeniYorum = new Yorum
+            {
+                MakaleId = model.MakaleId,
+                ReviewerId = model.ReviewerId,
+                Comments = model.Comments,
+                ReviewDate = DateTime.UtcNow
+            };
 
-             if (mevcutYorum == null)
-              {
-                  return NotFound("Bu makale için var olan bir yorum bulunamadı.");
-              }
-            
-            mevcutYorum.Comments = model.Comments;
-            mevcutYorum.ReviewDate = DateTime.UtcNow;
+            _context.reviews.Add(yeniYorum);
             await _context.SaveChangesAsync();
 
+            // PDF Yolu
             string pdfPath = makale.ContentPath;
             string updatedPdfPath = Path.Combine(Path.GetDirectoryName(pdfPath), $"Updated_{Path.GetFileName(pdfPath)}");
 
@@ -101,27 +102,16 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 using (var reader = new PdfReader(existingPdfStream))
                 using (var stamper = new PdfStamper(reader, newPdfStream))
                 {
-                    var yorumlar = await _context.reviews
-                        .Where(y => y.MakaleId == model.MakaleId)
-                        .OrderBy(y => y.ReviewDate)
-                        .ToListAsync();
-
                     PdfContentByte canvas = stamper.GetOverContent(reader.NumberOfPages);
                     BaseFont baseFont = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
                     canvas.BeginText();
                     canvas.SetFontAndSize(baseFont, 12);
                     canvas.SetTextMatrix(50, 100);
 
-                    canvas.ShowText("--- Güncellenmiş Yorumlar ---");
-                    int yOffset = 80;
-
-                    foreach (var yorum in yorumlar)
-                    {
-                        canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yorum.Comments}", 50, yOffset, 0);
-                        yOffset -= 20;
-                        canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, yOffset, 0);
-                        yOffset -= 30;
-                    }
+                    // Yeni eklenen yorumu PDF'ye ekle
+                    canvas.ShowText("--- Yeni Yorum ---");
+                    canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yeniYorum.Comments}", 50, 80, 0);
+                    canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yeniYorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, 60, 0);
 
                     canvas.EndText();
                     stamper.Close();
@@ -147,6 +137,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
             }
         }
+
         [HttpPost("change-reviewer")]
         public async Task<IActionResult> ChangeReviewer([FromBody] YorumViewModel model)
         {
