@@ -79,14 +79,14 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Makale bulunamadı.");
             }
 
-            var mevcutYorum = await _context.reviews
-                .FirstOrDefaultAsync(y => y.MakaleId == model.MakaleId && y.ReviewerId == model.ReviewerId);
+             var mevcutYorum = await _context.reviews
+                  .FirstOrDefaultAsync(y => y.MakaleId == model.MakaleId && y.ReviewerId == model.ReviewerId);
 
-            if (mevcutYorum == null)
-            {
-                return NotFound("Bu makale için var olan bir yorum bulunamadı.");
-            }
-
+             if (mevcutYorum == null)
+              {
+                  return NotFound("Bu makale için var olan bir yorum bulunamadı.");
+              }
+            
             mevcutYorum.Comments = model.Comments;
             mevcutYorum.ReviewDate = DateTime.UtcNow;
             await _context.SaveChangesAsync();

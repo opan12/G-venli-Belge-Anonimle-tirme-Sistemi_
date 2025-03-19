@@ -94,7 +94,8 @@ def mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations
     except Exception as e:
         print(f" PDF kaydedilirken hata oluştu: {e}")
 
-if _name_ == "_main_":
+if __name__ == "__main__":
+
     if len(sys.argv) != 3:
         print("Kullanım: python anonimize.py <input_pdf_path> <output_pdf_path>")
         sys.exit(1)

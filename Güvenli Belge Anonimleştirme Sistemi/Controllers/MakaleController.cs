@@ -79,54 +79,53 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     return result;
                 }
             }
-
         }
 
 
-[HttpPost("anonimize/{trackingNumber}")]
-    public async Task<IActionResult> AnonimizeMakale(string trackingNumber)
-    {
-        var makale = await _context.Articles.FirstOrDefaultAsync(m => m.TrackingNumber == trackingNumber);
-        if (makale == null)
+        [HttpPost("anonimize/{trackingNumber}")]
+        public async Task<IActionResult> AnonimizeMakale(string trackingNumber)
         {
-            return NotFound("Makale bulunamadı.");
-        }
+            var makale = await _context.Articles.FirstOrDefaultAsync(m => m.TrackingNumber == trackingNumber);
+            if (makale == null)
+            {
+                return NotFound("Makale bulunamadı.");
+            }
 
-        if (string.IsNullOrEmpty(makale.ContentPath))
-        {
-            return BadRequest("Makale içerik yolu bulunamadı.");
-        }
+            if (string.IsNullOrEmpty(makale.ContentPath))
+            {
+                return BadRequest("Makale içerik yolu bulunamadı.");
+            }
 
-        var inputFilePath = makale.ContentPath;
+            var inputFilePath = makale.ContentPath;
             var outputFilePath = System.IO.Path.Combine(
                 System.IO.Path.GetDirectoryName(inputFilePath),
                 $"anon_{System.IO.Path.GetFileName(inputFilePath)}"
             );
 
             if (!System.IO.File.Exists(inputFilePath))
-        {
-            return BadRequest("PDF dosyası mevcut değil.");
+            {
+                return BadRequest("PDF dosyası mevcut değil.");
+            }
+
+            // 🛠 Python scriptini çalıştır
+            bool success = await RunPythonScript(inputFilePath, outputFilePath);
+            if (!success)
+            {
+                return StatusCode(500, "Python scripti çalıştırılamadı.");
+            }
+
+            // 📂 Anonimleştirilmiş PDF'yi Base64 formatına çevir
+            string base64Pdf = Convert.ToBase64String(await System.IO.File.ReadAllBytesAsync(outputFilePath));
+
+            // 📥 Veritabanına kaydet
+            makale.AnonymizedContent = base64Pdf;
+            await _context.SaveChangesAsync();
+
+            // 🗑 Geçici dosyayı temizle
+            System.IO.File.Delete(outputFilePath);
+
+            return Ok(new { message = "Anonimleştirme tamamlandı ve veritabanına kaydedildi." });
         }
-
-        // 🛠 Python scriptini çalıştır
-        bool success = await RunPythonScript(inputFilePath, outputFilePath);
-        if (!success)
-        {
-            return StatusCode(500, "Python scripti çalıştırılamadı.");
-        }
-
-        // 📂 Anonimleştirilmiş PDF'yi Base64 formatına çevir
-        string base64Pdf = Convert.ToBase64String(await System.IO.File.ReadAllBytesAsync(outputFilePath));
-
-        // 📥 Veritabanına kaydet
-        makale.AnonymizedContent = base64Pdf;
-        await _context.SaveChangesAsync();
-
-        // 🗑 Geçici dosyayı temizle
-        System.IO.File.Delete(outputFilePath);
-
-        return Ok(new { message = "Anonimleştirme tamamlandı ve veritabanına kaydedildi." });
-    }
         [HttpGet("download-anon/{trackingNumber}")]
         public async Task<IActionResult> DownloadAnonymizedPdf(string trackingNumber)
         {
@@ -150,48 +149,47 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
         // 🔄 Python scriptini çalıştırma fonksiyonu
         private async Task<bool> RunPythonScript(string inputFilePath, string outputFilePath)
-    {
-        try
         {
-            string pythonScript = @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
-            string pythonExe = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe";
-
-            var startInfo = new ProcessStartInfo
+            try
             {
-                FileName = pythonExe,
-                Arguments = $"\"{pythonScript}\" \"{inputFilePath}\" \"{outputFilePath}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            using (var process = new Process { StartInfo = startInfo })
-            {
-                process.Start();
-                string output = await process.StandardOutput.ReadToEndAsync();
-                string error = await process.StandardError.ReadToEndAsync();
-                await process.WaitForExitAsync();
-
-                if (!string.IsNullOrEmpty(error))
+                string pythonScript = @"C:\Users\medih\Source\Repos\G-venli-Belge-Anonimle-tirme-Sistemi_\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
+                string pythonExe = @"C:\Users\medih\AppData\Local\Programs\Python\Python311\python.exe";
+                var startInfo = new ProcessStartInfo
                 {
-                    Console.WriteLine("Python Hatası: " + error);
-                    return false;
-                }
+                    FileName = pythonExe,
+                    Arguments = $"\"{pythonScript}\" \"{inputFilePath}\" \"{outputFilePath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
 
-                Console.WriteLine("Python Çıktısı: " + output);
-                return true;
+                using (var process = new Process { StartInfo = startInfo })
+                {
+                    process.Start();
+                    string output = await process.StandardOutput.ReadToEndAsync();
+                    string error = await process.StandardError.ReadToEndAsync();
+                    await process.WaitForExitAsync();
+
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        Console.WriteLine("Python Hatası: " + error);
+                        return false;
+                    }
+
+                    Console.WriteLine("Python Çıktısı: " + output);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Hata: " + ex.Message);
+                return false;
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Hata: " + ex.Message);
-            return false;
-        }
-    } 
 
 
-    [HttpGet("get-anonymized-pdf/{trackingNumber}")]
+        [HttpGet("get-anonymized-pdf/{trackingNumber}")]
         public IActionResult GetAnonymizedPdf(string trackingNumber)
         {
             var makale = _context.Articles.FirstOrDefault(m => m.TrackingNumber == trackingNumber);
@@ -206,7 +204,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Dosya mevcut değil.");
             }
 
-            // `wwwroot` içindeki yolunu istemciye göndermek için relative path oluştur
+            // wwwroot içindeki yolunu istemciye göndermek için relative path oluştur
             var relativePath = filePath.Replace("wwwroot", "").Replace("\\", "/");
 
             // Tarayıcıdan erişilebilecek URL'yi döndür
@@ -237,7 +235,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             return File(fileBytes, "application/pdf", System.IO.Path.GetFileName(filePath));
         }
 
-      
+
 
         // PDF sayfasından metin çıkarma
         private string ExtractTextFromPdfPage(PdfReader reader, int pageNum)
