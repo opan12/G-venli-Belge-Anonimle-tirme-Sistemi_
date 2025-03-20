@@ -29,6 +29,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     AuthorEmail = a.AuthorEmail,
                     TrackingNumber = a.TrackingNumber,
                     Status = a.Status,
+                    Alan =a.Alan,
                     ArticleDate = a.ArticleDate
                 })
                 .ToListAsync();

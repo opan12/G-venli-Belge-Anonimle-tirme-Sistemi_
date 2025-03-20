@@ -208,6 +208,29 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             }
         }
 
+        [HttpGet("reviewers/{field}")]
+        public IActionResult GetReviewersByField(string field)
+        {
+            try
+            {
+                var reviewers = _context.Reviewers
+                    .Where(r => r.Alan == field) 
+                    .Select(r => new
+                    {
+                        Id = r.Id,
+                        Alan = r.Alan
+                    })
+                    .ToList();
+
+                return Ok(reviewers);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "Hakemler alınırken hata oluştu: " + ex.Message);
+            }
+        }
+
+
         public class YorumViewModel
         {
             public int ArticleId { get; set; } // İncelenen makalenin kimliği

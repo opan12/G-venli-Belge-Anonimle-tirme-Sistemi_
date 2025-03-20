@@ -7,5 +7,6 @@
         public string TrackingNumber { get; set; }
         public string Status { get; set; }
         public DateTime ArticleDate { get; set; }
+        public string Alan { get; set; }
     }
 }
