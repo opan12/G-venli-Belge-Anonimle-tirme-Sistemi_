@@ -1,10 +1,10 @@
-﻿# -- coding: utf-8 --
-import fitz  # PyMuPDF
+﻿import fitz  # PyMuPDF
 import re
 import spacy
 import sys
 import locale
 import os
+from cryptography.fernet import Fernet  # Şifreleme için kullanılıyor
 
 # 🛠 UTF-8 uyumluluğunu zorunlu kıl
 os.environ["PYTHONUTF8"] = "1"  # Python'un iç UTF-8 desteğini aç
@@ -17,6 +17,22 @@ try:
 except:
     print("'en_core_web_trf' yüklenemedi, 'en_core_web_sm' kullanılıyor...")
     nlp = spacy.load("en_core_web_sm")
+
+# Şifreleme anahtarını oluşturmak
+def generate_key():
+    return Fernet.generate_key()
+
+# Veriyi şifrelemek
+def encrypt_data(data, key):
+    fernet = Fernet(key)
+    encrypted_data = fernet.encrypt(data.encode())
+    return encrypted_data
+
+# Şifreyi çözmek
+def decrypt_data(encrypted_data, key):
+    fernet = Fernet(key)
+    decrypted_data = fernet.decrypt(encrypted_data).decode()
+    return decrypted_data
 
 def extract_text_between_title_and_abstract(pdf_path):
     """Makale başlığı ile Abstract arasındaki kısmı çıkarır."""
@@ -76,17 +92,43 @@ def find_author_names(text):
             possible_names.add(ent.text)
     return list(possible_names)
 
-def mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations, organizations):
-    """PDF içindeki yazar isimlerini, e-postaları, lokasyonları ve organizasyonları maskeler."""
+def mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations, organizations, anonymization_options, key):
+    """PDF içindeki yazar isimlerini, e-postaları, lokasyonları ve organizasyonları maskeler ve anonimleştirilmiş veriyi şifreler."""
     doc = fitz.open(input_pdf_path)
 
     for page in doc:
-        for word_list, label in [(names, "[İSİM]"), (emails, "[E-POSTA]"), (locations, "[LOKASYON]"), (organizations, "[KURUM]")]:
-            for w in word_list:
-                rects = page.search_for(w)
+        # Anonimleştirme seçeneklerine göre işlem yapıyoruz
+        if "names" in anonymization_options:
+            for name in names:
+                encrypted_name = encrypt_data(name, key)
+                rects = page.search_for(name)
                 for rect in rects:
                     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
-                    page.insert_text((rect[0], rect[1]), label, fontsize=12, color=(0, 0, 0))
+                    page.insert_text((rect[0], rect[1]), encrypted_name.decode(), fontsize=12, color=(0, 0, 0))
+        
+        if "emails" in anonymization_options:
+            for email in emails:
+                encrypted_email = encrypt_data(email, key)
+                rects = page.search_for(email)
+                for rect in rects:
+                    page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
+                    page.insert_text((rect[0], rect[1]), encrypted_email.decode(), fontsize=12, color=(0, 0, 0))
+
+        if "locations" in anonymization_options:
+            for location in locations:
+                encrypted_location = encrypt_data(location, key)
+                rects = page.search_for(location)
+                for rect in rects:
+                    page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
+                    page.insert_text((rect[0], rect[1]), encrypted_location.decode(), fontsize=12, color=(0, 0, 0))
+
+        if "organizations" in anonymization_options:
+            for organization in organizations:
+                encrypted_organization = encrypt_data(organization, key)
+                rects = page.search_for(organization)
+                for rect in rects:
+                    page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
+                    page.insert_text((rect[0], rect[1]), encrypted_organization.decode(), fontsize=12, color=(0, 0, 0))
 
     try:
         doc.save(output_pdf_path)
@@ -96,16 +138,21 @@ def mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations
 
 if __name__ == "__main__":
 
-    if len(sys.argv) != 3:
-        print("Kullanım: python anonimize.py <input_pdf_path> <output_pdf_path>")
+    if len(sys.argv) != 4:
+        print("Kullanım: python anonimize.py <input_pdf_path> <output_pdf_path> <AnonymizationOptions>")
         sys.exit(1)
 
     input_pdf_path = sys.argv[1]
     output_pdf_path = sys.argv[2]
+    anonymization_options = sys.argv[3].split(",")  # Seçenekler virgülle ayrılacak
 
     text_between = extract_text_between_title_and_abstract(input_pdf_path)
     emails = find_emails(text_between)
     names = find_author_names(text_between)
     locations, organizations = find_locations_and_orgs(text_between)
 
-    mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations, organizations)
+    # Şifreleme için anahtar oluştur
+    key = generate_key()
+    
+    # PDF anonimleştirme işlemini başlat
+    mask_pdf_all_pages(input_pdf_path, output_pdf_path, names, emails, locations, organizations, anonymization_options, key)

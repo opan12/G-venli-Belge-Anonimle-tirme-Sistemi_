@@ -112,6 +112,19 @@ public async Task<IActionResult> UpdateArticleStatus([FromBody] UpdateArticleSta
 
             return Ok(reviews);
         }
+        [HttpGet("status/{trackingNumber}")]
+        public async Task<IActionResult> GetArticleStatus(string trackingNumber, [FromQuery] string email)
+        {
+            var article = await _context.Articles
+                .FirstOrDefaultAsync(a => a.TrackingNumber == trackingNumber && a.AuthorEmail == email);
+
+            if (article == null)
+            {
+                return NotFound("Makale bulunamadı.");
+            }
+
+            return Ok(new { Status = article.Status });
+        }
 
         [HttpPut("revise/{trackingNumber}")]
         public async Task<IActionResult> ReviseArticle(string trackingNumber, [FromForm] ArticleUploadModel model)

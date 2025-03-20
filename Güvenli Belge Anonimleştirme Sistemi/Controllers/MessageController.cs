@@ -1,37 +1,50 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Güvenli_Belge_Anonimleştirme_Sistemi.Model;
 using Microsoft.EntityFrameworkCore;
-using System.Threading.Tasks;
 using Güvenli_Belge_Anonimleştirme_Sistemi.Data;
+using Güvenli_Belge_Anonimleştirme_Sistemi.Model;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class MessageController : ControllerBase
-    {
-        private readonly ApplicationDbContext _context;
-
-        public MessageController(ApplicationDbContext context)
+   
+        public class MessageController : ControllerBase
         {
-            _context = context;
-        }
+            private readonly ApplicationDbContext _context;
 
-        [HttpPost("send")]
-        public async Task<IActionResult> SendMessage([FromBody] MessageModel model)
-        {
-
-            var message = new Message
+            public MessageController(ApplicationDbContext context)
             {
-                ArticleId = model.ArticleId,
-                SenderEmail = model.SenderEmail,
-                Content = model.Content,
-            };
+                _context = context;
+            }
 
-            _context.messages.Add(message);
-            await _context.SaveChangesAsync();
+            // Get messages for an article
+            [HttpGet("getMessages/{articleId}")]
+            public async Task<IActionResult> GetMessages(int articleId)
+            {
+                var messages = await _context.messages
+                    .Where(m => m.ArticleId == articleId)
+                    .ToListAsync();
 
-            return Ok(new { MessageId = message.Id });
+                return Ok(messages);
+            }
+
+            // Send a new message
+            [HttpPost("sendMessage")]
+            public async Task<IActionResult> SendMessage([FromBody] Message message)
+            {
+                if (message == null)
+                {
+                    return BadRequest("Message content cannot be null.");
+                }
+
+                _context.messages.Add(message);
+                await _context.SaveChangesAsync();
+
+                return Ok(message);
+            }
         }
+
     }
-}
