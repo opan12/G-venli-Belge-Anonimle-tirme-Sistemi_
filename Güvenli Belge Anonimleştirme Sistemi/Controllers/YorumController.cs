@@ -45,7 +45,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                                   {
                                       y.Id,
                                       y.MakaleId,
-                                  //  y.Makale.TrackingNumber,
+                                      //  y.Makale.TrackingNumber,
                                       y.Comments,
                                       y.ReviewDate
                                   })
@@ -214,7 +214,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             try
             {
                 var reviewers = _context.Reviewers
-                    .Where(r => r.Alan == field) 
+                    .Where(r => r.Alan == field)
                     .Select(r => new
                     {
                         Id = r.Id,
