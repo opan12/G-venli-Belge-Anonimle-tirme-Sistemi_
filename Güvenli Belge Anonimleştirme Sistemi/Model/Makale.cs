@@ -10,6 +10,8 @@
         public DateTime ArticleDate { get; set; }
         public string Content { get; set; }
         public string AnonymizedContent { get; set; }
+        public string? DeanonymizedContent { get; set; }
+
         public string Alan { get; set; }
     }
 }

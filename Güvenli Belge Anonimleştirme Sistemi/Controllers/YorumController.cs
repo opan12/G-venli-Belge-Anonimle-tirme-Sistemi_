@@ -79,7 +79,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound("Makale bulunamadı.");
             }
 
-            // Yeni yorumu ekle
+            // Yeni yorumu veritabanına ekle
             var yeniYorum = new Yorum
             {
                 MakaleId = model.MakaleId,
@@ -92,7 +92,12 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             await _context.SaveChangesAsync();
 
             // PDF Yolu
-            string pdfPath = makale.ContentPath;
+            string pdfPath = makale.AnonymizedContent; // Anonimleştirilmiş içerik yolu
+            if (string.IsNullOrEmpty(pdfPath) || !System.IO.File.Exists(pdfPath))
+            {
+                return NotFound("Anonimleştirilmiş PDF dosyası bulunamadı.");
+            }
+
             string updatedPdfPath = Path.Combine(Path.GetDirectoryName(pdfPath), $"Updated_{Path.GetFileName(pdfPath)}");
 
             try
@@ -123,6 +128,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     Directory.CreateDirectory(Path.GetDirectoryName(newSavePath));
                 }
 
+                // Güncellenmiş PDF'yi belirtilen yere kaydet
                 System.IO.File.Move(updatedPdfPath, newSavePath, true);
 
                 var fileBytes = await System.IO.File.ReadAllBytesAsync(newSavePath);
@@ -136,6 +142,74 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
             }
+            /* if (model == null || string.IsNullOrWhiteSpace(model.Comments))
+             {
+                 return BadRequest("Yorum bilgileri eksik.");
+             }
+
+             var makale = await _context.Articles.FindAsync(model.MakaleId);
+             if (makale == null)
+             {
+                 return NotFound("Makale bulunamadı.");
+             }
+
+             // Yeni yorumu ekle
+             var yeniYorum = new Yorum
+             {
+                 MakaleId = model.MakaleId,
+                 ReviewerId = model.ReviewerId,
+                 Comments = model.Comments,
+                 ReviewDate = DateTime.UtcNow
+             };
+
+             _context.reviews.Add(yeniYorum);
+             await _context.SaveChangesAsync();
+
+             // PDF Yolu
+             string pdfPath = makale.ContentPath;
+             string updatedPdfPath = Path.Combine(Path.GetDirectoryName(pdfPath), $"Updated_{Path.GetFileName(pdfPath)}");
+
+             try
+             {
+                 using (var existingPdfStream = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                 using (var newPdfStream = new FileStream(updatedPdfPath, FileMode.Create, FileAccess.Write))
+                 using (var reader = new PdfReader(existingPdfStream))
+                 using (var stamper = new PdfStamper(reader, newPdfStream))
+                 {
+                     PdfContentByte canvas = stamper.GetOverContent(reader.NumberOfPages);
+                     BaseFont baseFont = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+                     canvas.BeginText();
+                     canvas.SetFontAndSize(baseFont, 12);
+                     canvas.SetTextMatrix(50, 100);
+
+                     // Yeni eklenen yorumu PDF'ye ekle
+                     canvas.ShowText("--- Yeni Yorum ---");
+                     canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yeniYorum.Comments}", 50, 80, 0);
+                     canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yeniYorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, 60, 0);
+
+                     canvas.EndText();
+                     stamper.Close();
+                 }
+
+                 string newSavePath = Path.Combine("wwwroot", "uploads", "updated", Path.GetFileName(updatedPdfPath));
+                 if (!Directory.Exists(Path.GetDirectoryName(newSavePath)))
+                 {
+                     Directory.CreateDirectory(Path.GetDirectoryName(newSavePath));
+                 }
+
+                 System.IO.File.Move(updatedPdfPath, newSavePath, true);
+
+                 var fileBytes = await System.IO.File.ReadAllBytesAsync(newSavePath);
+                 return File(fileBytes, "application/pdf", Path.GetFileName(newSavePath));
+             }
+             catch (IOException ioEx)
+             {
+                 return StatusCode(500, $"PDF güncellenirken dosya hatası oluştu: {ioEx.Message}");
+             }
+             catch (Exception ex)
+             {
+                 return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
+             }*/
         }
 
         [HttpPost("change-reviewer")]

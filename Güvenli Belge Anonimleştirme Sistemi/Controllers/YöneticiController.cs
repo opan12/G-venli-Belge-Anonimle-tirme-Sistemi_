@@ -69,7 +69,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Başarılı ekleme sonrası 201 Created dönüyoruz.
             return CreatedAtAction(nameof(AddReviewer), new { alan = reviewer.Alan }, reviewer);
         }
-
+     
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetReviewerById(int id)
@@ -82,5 +82,9 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(reviewer);
         }
+    
+}} public class DecryptRequest
+
+    {
+        public string TrackingNumber { get; set; }
     }
-}
