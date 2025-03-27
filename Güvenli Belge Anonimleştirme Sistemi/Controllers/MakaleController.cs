@@ -24,10 +24,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
     public class MakaleController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        public readonly MakaleLogService _makaleLogService;
+        public readonly IMakaleLogService _makaleLogService;
 
 
-        public MakaleController(ApplicationDbContext context, MakaleLogService makaleLogService)
+        public MakaleController(ApplicationDbContext context, IMakaleLogService makaleLogService)
         {
             _context = context;
             _makaleLogService = makaleLogService;
