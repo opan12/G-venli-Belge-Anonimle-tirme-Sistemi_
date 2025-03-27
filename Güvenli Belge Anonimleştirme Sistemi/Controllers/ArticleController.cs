@@ -203,12 +203,25 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return NotFound(new { Message = "Makale bulunamadı." });
             }
 
+            // Makale durumu kontrolü
+            if (article.Status == "Yorum eklendi")
+            {
+                // PDF'nin URL'sini döndür
+                return Ok(new
+                {
+                    Status = article.Status,
+                    AuthorEmail = article.AuthorEmail,
+                    PdfUrl = article.AnonymizedContent // PDF'nin saklandığı alan
+                });
+            }
+
             return Ok(new
             {
                 Status = article.Status,
                 AuthorEmail = article.AuthorEmail
             });
         }
+
         [HttpGet("{email}")]
         public async Task<IActionResult> GetMessages(string email)
         {

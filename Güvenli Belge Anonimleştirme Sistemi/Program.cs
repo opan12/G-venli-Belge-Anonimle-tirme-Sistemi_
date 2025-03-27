@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Güvenli_Belge_Anonimleþtirme_Sistemi.Model;
 using Güvenli_Belge_Anonimleþtirme_Sistemi.Data;
+using Güvenli_Belge_Anonimleþtirme_Sistemi.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,7 +40,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<IdentityUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
-builder.ser
+builder.Services.AddScoped<IMakaleLogService, MakaleLogService>();
 // Add Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
