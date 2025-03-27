@@ -89,10 +89,15 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             };
 
             _context.reviews.Add(yeniYorum);
+
+            // Makale durumunu güncelle
+            makale.Status = "Yorum eklendi";
+            _context.Articles.Update(makale);
+
             await _context.SaveChangesAsync();
 
             // PDF Yolu
-            string pdfPath = makale.AnonymizedContent; // Anonimleştirilmiş içerik yolu
+            string pdfPath = makale.AnonymizedContent;
             if (string.IsNullOrEmpty(pdfPath) || !System.IO.File.Exists(pdfPath))
             {
                 return NotFound("Anonimleştirilmiş PDF dosyası bulunamadı.");
@@ -107,16 +112,20 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 using (var reader = new PdfReader(existingPdfStream))
                 using (var stamper = new PdfStamper(reader, newPdfStream))
                 {
-                    PdfContentByte canvas = stamper.GetOverContent(reader.NumberOfPages);
+                    int lastPage = reader.NumberOfPages;
+                    stamper.InsertPage(lastPage + 1, reader.GetPageSize(lastPage)); // Yeni sayfa ekle
+
+                    PdfContentByte canvas = stamper.GetOverContent(lastPage + 1);
                     BaseFont baseFont = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+
                     canvas.BeginText();
                     canvas.SetFontAndSize(baseFont, 12);
-                    canvas.SetTextMatrix(50, 100);
+                    canvas.SetTextMatrix(50, 750); // Yeni sayfanın en üstüne yerleştirme
 
-                    // Yeni eklenen yorumu PDF'ye ekle
+                    // Yeni eklenen yorumu yeni sayfaya ekle
                     canvas.ShowText("--- Yeni Yorum ---");
-                    canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yeniYorum.Comments}", 50, 80, 0);
-                    canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yeniYorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, 60, 0);
+                    canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yeniYorum.Comments}", 50, 730, 0);
+                    canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yeniYorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, 710, 0);
 
                     canvas.EndText();
                     stamper.Close();
@@ -128,7 +137,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     Directory.CreateDirectory(Path.GetDirectoryName(newSavePath));
                 }
 
-                // Güncellenmiş PDF'yi belirtilen yere kaydet
                 System.IO.File.Move(updatedPdfPath, newSavePath, true);
 
                 var fileBytes = await System.IO.File.ReadAllBytesAsync(newSavePath);
@@ -142,6 +150,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
             }
+
+
             /* if (model == null || string.IsNullOrWhiteSpace(model.Comments))
              {
                  return BadRequest("Yorum bilgileri eksik.");
@@ -265,6 +275,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
                 _context.reviews.Add(newReview);
                 await _context.SaveChangesAsync();
+               //  await _makaleLogService.LogMakaleAction(trackingNumber, "hakem değiştirildi", "Yönetici", DateTime.Now);
 
                 Console.WriteLine($"[INFO] Yeni hakem atandı: {model.ReviewerId}");
 
@@ -341,6 +352,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 await _context.SaveChangesAsync();
 
                 Console.WriteLine($"[INFO] {yorum.ReviewerId} hakem olarak atandı!"); // Log Ekle
+                // await _makaleLogService.LogMakaleAction(trackingNumber, "hakem eklendi", "Yönetici", DateTime.Now);
 
                 return Ok(new { message = "Hakem başarıyla atandı.", AssignmentDate = yorum.ReviewDate });
             }

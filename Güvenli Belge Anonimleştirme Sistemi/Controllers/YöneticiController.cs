@@ -18,6 +18,62 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         {
             _context = context;
         }
+        public class UserRegisterModel
+        {
+            public string UserName { get; set; }
+        }
+
+
+        [HttpPost("register")]
+        public async Task<IActionResult> Register([FromBody] UserRegisterModel model)
+        {
+
+
+            var user = new User
+            {
+                Id = 1,
+                UserName = "YONETİCİ",
+                Email = "YONETİCİ",
+            };
+            _context.users.Add(user);
+
+            _context.SaveChanges();
+
+            return Ok(new { Message = "Kullanıcı başarıyla oluşturuldu!", UserId = user.Id });
+        }
+        [HttpPost("send")]
+        public async Task<IActionResult> SendMessage([FromBody] MessageModel model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Content))
+            {
+                return BadRequest("Mesaj içeriği boş olamaz.");
+            }
+
+            var message = new Message
+            {
+                SenderEmail = model.SenderEmail,
+                ReceiverEmail = "YONETİCİ",  // Yöneticiye mesaj gönderiyoruz
+                Content = model.Content,
+                SentAt = DateTime.UtcNow
+            };
+
+            _context.messages.Add(message);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Mesaj gönderildi.", SentAt = message.SentAt });
+        }
+        [HttpGet]
+        public async Task<IActionResult> GetAdminMessages()
+        {
+            // Sadece yöneticinin mesajlarını getir
+            var adminMessages = await _context.messages
+                .Where(m => m.ReceiverEmail == "YONETİCİ") // Yöneticiye özel
+                .OrderByDescending(m => m.SentAt)
+                .ToListAsync();
+
+            return Ok(adminMessages);
+        }
+
         [HttpGet("all")]
         public async Task<IActionResult> GetAllArticles()
         {
@@ -37,6 +93,20 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Return the list of articles
             return Ok(articles);
         }
+        [HttpGet("yorum-eklenenler")]
+        public async Task<IActionResult> GetReviewedArticles()
+        {
+            var reviewedArticles = await _context.Articles
+                .Where(m => m.Status == "Yorum eklendi")
+                .ToListAsync();
+
+            if (reviewedArticles == null || !reviewedArticles.Any())
+            {
+                return NotFound("Yorum eklenmiş makale bulunamadı.");
+            }
+
+            return Ok(reviewedArticles);
+        }
         public class ReviewerViewModel
         {
             public string Alan { get; set; } // Sadece Alan adı
@@ -47,6 +117,12 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         {
             var reviewers = await _context.Reviewers.ToListAsync();
             return Ok(reviewers);
+        }
+        [HttpGet("log")]
+        public async Task<ActionResult<IEnumerable<Log>>> GetLogs()
+        {
+            var logs = await _context.Logs.OrderByDescending(l => l.ActionDate).ToListAsync();
+            return Ok(logs);
         }
         [HttpPost("add")]
         public async Task<IActionResult> AddReviewer([FromBody] ReviewerViewModel reviewerViewModel)
@@ -65,6 +141,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Hakemi veritabanına ekle
             _context.Reviewers.Add(reviewer);
             await _context.SaveChangesAsync();
+            // await _makaleLogService.LogMakaleAction(trackingNumber, "hakem eklendi", "Yönetici", DateTime.Now);
 
             // Başarılı ekleme sonrası 201 Created dönüyoruz.
             return CreatedAtAction(nameof(AddReviewer), new { alan = reviewer.Alan }, reviewer);
