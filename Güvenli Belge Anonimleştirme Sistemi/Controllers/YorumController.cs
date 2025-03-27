@@ -79,7 +79,13 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 return NotFound("Makale bulunamadı.");
             }
+            var reviewerAssignedArticle = await _context.reviews
+        .FirstOrDefaultAsync(ra => ra.MakaleId == model.MakaleId && ra.ReviewerId == model.ReviewerId);
 
+            if (reviewerAssignedArticle == null)
+            {
+                return BadRequest("Bu makale üzerinde yorum yapma yetkiniz yok.");
+            }
             // Yeni yorumu veritabanına ekle
             var yeniYorum = new Yorum
             {
