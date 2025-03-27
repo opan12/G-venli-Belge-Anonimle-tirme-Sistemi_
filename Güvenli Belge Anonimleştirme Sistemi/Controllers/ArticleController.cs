@@ -6,6 +6,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Güvenli_Belge_Anonimleştirme_Sistemi.Data;
 using System;
+using Güvenli_Belge_Anonimleştirme_Sistemi.Services;
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
@@ -15,13 +16,14 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly IMakaleLogService _makaleLogService;
 
-        public ArticleController(ApplicationDbContext context, IWebHostEnvironment env)
+        public ArticleController(ApplicationDbContext context, IWebHostEnvironment env, IMakaleLogService makaleLogService)
         {
             _context = context;
             _env = env;
+            _makaleLogService = makaleLogService;
         }
-
         [HttpPost("upload")]
         public async Task<IActionResult> UploadArticle([FromForm] ArticleUploadModel model)
         {
@@ -30,7 +32,6 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return BadRequest("No file uploaded.");
             }
 
-            // "uploads" klasörünü oluştur
             var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
             if (!Directory.Exists(uploadDirectory))
             {
@@ -38,14 +39,14 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             }
 
             var fileExtension = Path.GetExtension(model.PdfFile.FileName);
-            var fileName = $"{Guid.NewGuid()}{fileExtension}"; // Rastgele dosya adı oluştur
-            var filePath = Path.Combine(uploadDirectory, fileName); // Tam dosya yolu
+            var fileName = $"{Guid.NewGuid()}{fileExtension}";
+            var filePath = Path.Combine(uploadDirectory, fileName);
 
-            // Dosyayı kaydet
             using (var fileStream = new FileStream(filePath, FileMode.Create))
             {
                 await model.PdfFile.CopyToAsync(fileStream);
             }
+            var trackingNumber = Guid.NewGuid().ToString();
 
             // NLP ile alan belirleme
             var articleArea = DetermineArticleAreas(filePath);
@@ -54,8 +55,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             var article = new Makale
             {
                 AuthorEmail = model.AuthorEmail,
-                ContentPath = filePath, // TAM DOSYA YOLU KAYDEDİLİYOR
-                TrackingNumber = Guid.NewGuid().ToString(),
+                ContentPath = filePath,
+                TrackingNumber = trackingNumber,
                 Status = "Uploaded",
                 Content = "",
                 AnonymizedContent = "",
@@ -66,8 +67,87 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _context.Articles.Add(article);
             await _context.SaveChangesAsync();
 
+            // Otomatik hakem atama
+            var reviewers = await _context.Reviewers
+                .Where(r => r.Alan.Contains(article.Alan)) // Hakemin uzmanlık alanına göre filtreleme
+                .ToListAsync();
+
+            if (reviewers.Count == 1) // Sadece bir hakem varsa
+            {
+                var reviewer = reviewers.First();
+                var yorum = new Yorum
+                {
+                    MakaleId = article.Id,
+                    ReviewerId = reviewer.Id,
+                    ReviewDate = DateTime.Now,
+                    Comments = "",
+                };
+
+                _context.reviews.Add(yorum);
+                await _context.SaveChangesAsync();
+                Console.WriteLine($"[INFO] {reviewer.Id} hakem olarak atandı!");
+            }
+            else if (reviewers.Count > 1)
+            {
+                Console.WriteLine("[WARNING] Birden fazla uygun hakem bulundu, hakem ataması yapılmadı.");
+            }
+            else
+            {
+                Console.WriteLine("[WARNING] Uygun hakem bulunamadı.");
+            }
+
+            await _makaleLogService.LogMakaleAction(trackingNumber, "Makale anonimleştirildi", "User", DateTime.Now);
+
             return Ok(new { TrackingNumber = article.TrackingNumber, FilePath = filePath });
         }
+
+
+        //[HttpPost("upload")]
+        //public async Task<IActionResult> UploadArticle([FromForm] ArticleUploadModel model)
+        //{
+        //    if (model.PdfFile == null || model.PdfFile.Length == 0)
+        //    {
+        //        return BadRequest("No file uploaded.");
+        //    }
+
+        //    // "uploads" klasörünü oluştur
+        //    var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
+        //    if (!Directory.Exists(uploadDirectory))
+        //    {
+        //        Directory.CreateDirectory(uploadDirectory);
+        //    }
+
+        //    var fileExtension = Path.GetExtension(model.PdfFile.FileName);
+        //    var fileName = $"{Guid.NewGuid()}{fileExtension}"; // Rastgele dosya adı oluştur
+        //    var filePath = Path.Combine(uploadDirectory, fileName); // Tam dosya yolu
+
+        //    // Dosyayı kaydet
+        //    using (var fileStream = new FileStream(filePath, FileMode.Create))
+        //    {
+        //        await model.PdfFile.CopyToAsync(fileStream);
+        //    }
+
+        //    // NLP ile alan belirleme
+        //    var articleArea = DetermineArticleAreas(filePath);
+
+        //    // Veritabanına TAM DOSYA YOLUNU kaydet
+        //    var article = new Makale
+        //    {
+        //        AuthorEmail = model.AuthorEmail,
+        //        ContentPath = filePath, // TAM DOSYA YOLU KAYDEDİLİYOR
+        //        TrackingNumber = Guid.NewGuid().ToString(),
+        //        Status = "Uploaded",
+        //        Content = "",
+        //        AnonymizedContent = "",
+        //        ArticleDate = DateTime.Now,
+        //        Alan = string.Join(", ", articleArea)
+        //    };
+
+        //    _context.Articles.Add(article);
+        //    await _context.SaveChangesAsync();
+
+        //    return Ok(new { TrackingNumber = article.TrackingNumber, FilePath = filePath });
+        //}
 
 
         [HttpPost("update-status")]
@@ -112,7 +192,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(reviews);
         }
-        [HttpGet("status/{trackingNumber}")]
+        [HttpGet("status/{trackingNumber}/{email}")]
         public async Task<IActionResult> GetArticleStatus(string trackingNumber, string email)
         {
             var article = await _context.Articles
@@ -120,11 +200,43 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             if (article == null)
             {
-                return NotFound("Makale bulunamadı.");
+                return NotFound(new { Message = "Makale bulunamadı." });
             }
 
-            return Ok(new { Status = article.Status });
+            return Ok(new
+            {
+                Status = article.Status,
+                AuthorEmail = article.AuthorEmail
+            });
         }
+        [HttpGet("{email}")]
+        public async Task<IActionResult> GetMessages(string email)
+        {
+            var messages = await _context.messages
+                .Where(m => m.SenderEmail == email)
+                .OrderByDescending(m => m.SentAt)
+                .ToListAsync();
+
+            return Ok(messages);
+        }
+        [HttpPost("send-message")]
+        public async Task<IActionResult> SendMessage([FromBody] MessageModel messageModel)
+        {
+            var message = new Message
+            {
+                SenderEmail = messageModel.SenderEmail,
+                Content = messageModel.Content,
+                ReceiverEmail = "Yonetici",
+                SentAt = DateTime.UtcNow
+            };
+
+            _context.messages.Add(message);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Mesaj gönderildi.", SentAt = message.SentAt });
+        }
+
+
         [HttpPut("revise/{trackingNumber}")]
         public async Task<IActionResult> ReviseArticle(string trackingNumber, [FromForm] ArticleUploadModel model)
         {
@@ -160,6 +272,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             _context.Articles.Update(article);
             await _context.SaveChangesAsync();
+            await _makaleLogService.LogMakaleAction(trackingNumber, "Makale revise edildi", "user", DateTime.Now);
+
 
             return Ok(new { TrackingNumber = article.TrackingNumber });
         }

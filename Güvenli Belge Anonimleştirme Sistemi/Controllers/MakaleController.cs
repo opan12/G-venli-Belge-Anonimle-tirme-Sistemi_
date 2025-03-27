@@ -14,6 +14,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Diagnostics;
 using Microsoft.AspNetCore.Authorization;
+using Güvenli_Belge_Anonimleştirme_Sistemi.Services;
 
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
@@ -23,10 +24,15 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
     public class MakaleController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        public readonly MakaleLogService _makaleLogService;
 
-        public MakaleController(ApplicationDbContext context)
+
+        public MakaleController(ApplicationDbContext context, MakaleLogService makaleLogService)
         {
             _context = context;
+            _makaleLogService = makaleLogService;
+
+
         }
 
         private byte[] CreateAnonymizedPdf(string originalPdfPath)
@@ -118,34 +124,37 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Base64 yerine dosya yolunu kaydet
             makale.AnonymizedContent = outputFilePath;
             await _context.SaveChangesAsync();
+            await _makaleLogService.LogMakaleAction(trackingNumber, "Makale anonimleştirildi", "Yönetici", DateTime.Now);
+
 
             return Ok(new { message = "Anonimleştirme tamamlandı ve veritabanına kaydedildi.", path = outputFilePath });
         }
         [HttpGet("yorum-eklenenler-indir")]
-        public async Task<IActionResult> DownloadReviewedArticle(int makaleıd)
+        public async Task<IActionResult> DownloadReviewedArticle(int makaleId)
         {
             var reviewedArticle = await _context.Articles
-                .Where(m => m.Id == makaleıd)
-                .Select(m => m.AnonymizedContent) // Sadece dosya yolunu çekiyoruz
+                .Where(m => m.Id == makaleId)
+                .Select(m => new { m.AnonymizedContent, m.TrackingNumber }) // TrackingNumber ve AnonymizedContent çekiliyor
                 .FirstOrDefaultAsync();
 
-            if (string.IsNullOrEmpty(reviewedArticle))
+            if (reviewedArticle == null || string.IsNullOrEmpty(reviewedArticle.AnonymizedContent))
             {
                 return NotFound("Yorum eklenmiş makale bulunamadı.");
             }
 
-            var filePath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", reviewedArticle);
+            var filePath = System.IO.Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", reviewedArticle.AnonymizedContent);
 
             if (!System.IO.File.Exists(filePath))
             {
                 return NotFound("Dosya bulunamadı.");
             }
 
+            // Log kaydı ekle (TrackingNumber artık mevcut)
+            await _makaleLogService.LogMakaleAction(reviewedArticle.TrackingNumber, "yorumlanmış Makale indirildi", "Yönetici", DateTime.Now);
+
             var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
             return File(fileBytes, "application/pdf", System.IO.Path.GetFileName(filePath));
         }
-
-
         /*   [HttpPost("anonimize/{trackingNumber}")]
            public async Task<IActionResult> AnonimizeMakale(string trackingNumber)
            {
@@ -215,7 +224,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             var filePath = makale.AnonymizedContent;
             var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
             var fileName = $"anon_{trackingNumber}.pdf";
-           // await _makaleLogService.LogMakaleAction(trackingNumber, "Makale deşifrelendi", "Yönetici", DateTime.Now);
+            await _makaleLogService.LogMakaleAction(trackingNumber, "Makale deşifrelendi", "Yönetici", DateTime.Now);
 
             return File(fileBytes, "application/pdf", fileName);
         }

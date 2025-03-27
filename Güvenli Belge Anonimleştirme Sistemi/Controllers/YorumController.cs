@@ -151,6 +151,8 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
             }
+
+
             /* if (model == null || string.IsNullOrWhiteSpace(model.Comments))
              {
                  return BadRequest("Yorum bilgileri eksik.");
@@ -274,6 +276,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
                 _context.reviews.Add(newReview);
                 await _context.SaveChangesAsync();
+               //  await _makaleLogService.LogMakaleAction(trackingNumber, "hakem değiştirildi", "Yönetici", DateTime.Now);
 
                 Console.WriteLine($"[INFO] Yeni hakem atandı: {model.ReviewerId}");
 
@@ -350,6 +353,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 await _context.SaveChangesAsync();
 
                 Console.WriteLine($"[INFO] {yorum.ReviewerId} hakem olarak atandı!"); // Log Ekle
+                // await _makaleLogService.LogMakaleAction(trackingNumber, "hakem eklendi", "Yönetici", DateTime.Now);
 
                 return Ok(new { message = "Hakem başarıyla atandı.", AssignmentDate = yorum.ReviewDate });
             }

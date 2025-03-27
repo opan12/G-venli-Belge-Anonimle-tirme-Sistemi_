@@ -18,8 +18,9 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Data
         public DbSet<Message> messages { get; set; }
         public DbSet<Reviewer> Reviewers { get; set; }
 
+        public DbSet<Log> Logs { get; set; }
 
-        
+
 
 
         //  public DbSet<Odenek> Odeneks { get; set; }

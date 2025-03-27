@@ -3,10 +3,12 @@
     public class Message
     {
         public int Id { get; set; }
-        public int ArticleId { get; set; } // Mesajın hangi makale ile ilgili olduğu
-        public Makale Article { get; set; }
-        public string SenderEmail { get; set; } // Mesajı gönderenin e-posta adresi
-        public string Content { get; set; } // Mesaj içeriği
-        public DateTime SentAt { get; set; } // Mesajın gönderilme tarihi
+
+        public string SenderEmail { get; set; }
+
+        public string ReceiverEmail { get; set; }
+        public string Content { get; set; }
+        public DateTime SentAt { get; set; }
     }
+
 }
