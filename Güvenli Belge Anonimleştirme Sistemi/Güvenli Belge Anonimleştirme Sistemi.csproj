@@ -14,6 +14,44 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="blurry_image_134.png" />
+    <None Remove="blurry_image_148.png" />
+    <None Remove="blurry_image_172.png" />
+    <None Remove="blurry_image_182.png" />
+    <None Remove="blurry_image_192.png" />
+    <None Remove="blurry_image_216.png" />
+    <None Remove="blurry_image_219.png" />
+    <None Remove="blurry_image_224.png" />
+    <None Remove="blurry_image_227.png" />
+    <None Remove="blurry_image_235.png" />
+    <None Remove="blurry_image_317.png" />
+    <None Remove="blurry_image_323.png" />
+    <None Remove="blurry_image_324.png" />
+    <None Remove="blurry_image_325.png" />
+    <None Remove="blurry_image_326.png" />
+    <None Remove="blurry_image_328.png" />
+    <None Remove="blurry_image_334.png" />
+    <None Remove="blurry_image_353.png" />
+    <None Remove="blurry_image_354.png" />
+    <None Remove="blurry_image_355.png" />
+    <None Remove="blurry_image_356.png" />
+    <None Remove="blurry_image_357.png" />
+    <None Remove="blurry_image_358.png" />
+    <None Remove="blurry_image_439.png" />
+    <None Remove="blurry_image_449.png" />
+    <None Remove="blurry_image_452.png" />
+    <None Remove="blurry_image_455.png" />
+    <None Remove="blurry_image_458.png" />
+    <None Remove="blurry_image_68.png" />
+    <None Remove="uploads\044e1960-babb-4f63-9d6e-2d853630d9e3.pdf" />
+    <None Remove="uploads\178d4cb0-7a47-47f2-a576-48a0b2918811.pdf" />
+    <None Remove="uploads\1845bee1-6c73-459b-a6c1-bc6b61b2d2a7.pdf" />
+    <None Remove="uploads\1aceabaf-6294-4da9-9d33-6c8170afb7b6.pdf" />
+    <None Remove="uploads\27748889-9542-4d28-8960-e9e6ce8e6937.pdf" />
+    <None Remove="uploads\6ee9429a-e8bc-481b-9e79-d4d6227f102b.pdf" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Catalyst" Version="1.0.54164" />
     <PackageReference Include="Catalyst.Models.English" Version="1.0.30952" />
     <PackageReference Include="itext7.pdfocr.api" Version="4.0.1" />

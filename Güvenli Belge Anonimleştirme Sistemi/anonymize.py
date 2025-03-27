@@ -107,7 +107,7 @@ def add_email_names_to_authors(emails, author_names, text):
     
     # İlk olarak, her bir e-posta adresini kontrol edip isimleri çıkaralım
     for email in emails:
-        name = extract_name_from_email(email)
+        name = extract_name_from_email(email)  # Burada isim çıkartılıyor
         email_to_name[email] = name  # e-posta ile isim eşleşmesini kaydediyoruz
         
         # Eğer isim metinde varsa, yazara ekle
@@ -184,11 +184,7 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, org
                         continue  # Aynı konumda tekrar ekleme
                     term_positions[position_key] = sub_term
 
-                    # Eğer bu bir e-posta adresi ve yazara aitse, anonimleştirme yapmıyoruz
-                    if sub_term in email_to_name:
-                        name = email_to_name[sub_term]
-                        if name in names:
-                            names.append(name) # E-posta adresi anonimleştirilmeyecek
+                
 
                     # Termi anonimleştir
                     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))

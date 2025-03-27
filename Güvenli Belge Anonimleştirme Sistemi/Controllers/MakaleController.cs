@@ -215,6 +215,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             var filePath = makale.AnonymizedContent;
             var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
             var fileName = $"anon_{trackingNumber}.pdf";
+           // await _makaleLogService.LogMakaleAction(trackingNumber, "Makale deşifrelendi", "Yönetici", DateTime.Now);
 
             return File(fileBytes, "application/pdf", fileName);
         }
