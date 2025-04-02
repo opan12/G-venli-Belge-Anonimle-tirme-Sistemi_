@@ -203,7 +203,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         public async Task<IActionResult> GetMessages(string email)
         {
             var messages = await _context.messages
-                .Where(m => m.SenderEmail == email || m.ReceiverEmail.ToLower() == "YONETİCİ")
+                 .Where(m => m.SenderEmail == email || m.ReceiverEmail == email)
                 .OrderByDescending(m => m.SentAt)
                 .ToListAsync();
 
@@ -217,7 +217,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 SenderEmail = messageModel.SenderEmail,
                 Content = messageModel.Content,
-                ReceiverEmail = "Yonetici",
+                ReceiverEmail = "YONETİCİ",
                 SentAt = DateTime.UtcNow
             };
 

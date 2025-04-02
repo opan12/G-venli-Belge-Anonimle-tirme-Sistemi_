@@ -48,15 +48,11 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         [HttpPost("send")]
         public async Task<IActionResult> SendMessage([FromBody] MessageModel model)
         {
-            if (string.IsNullOrWhiteSpace(model.Content))
-            {
-                return BadRequest("Mesaj içeriği boş olamaz.");
-            }
-
+          
             var message = new Message
             {
-                SenderEmail = model.SenderEmail,
-                ReceiverEmail = "YONETİCİ",  // Yöneticiye mesaj gönderiyoruz
+                SenderEmail = "YONETİCİ",
+                ReceiverEmail = model.SenderEmail ,  // Yöneticiye mesaj gönderiyoruz
                 Content = model.Content,
                 SentAt = DateTime.UtcNow
             };
