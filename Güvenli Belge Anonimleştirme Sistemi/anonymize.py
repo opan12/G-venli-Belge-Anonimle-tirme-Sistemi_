@@ -4,8 +4,11 @@ import spacy
 import sys
 import locale
 import os
+from cryptography.fernet import Fernet  # Şifreleme için kullanılıyor
+import cv2
+import numpy as np
+from PIL import Image
 import json
-from cryptography.fernet import Fernet
 
 # UTF-8 uyumluluğunu zorunlu kıl
 os.environ["PYTHONUTF8"] = "1"
@@ -68,19 +71,20 @@ def extract_name_from_email(email):
 
 def find_locations_and_orgs(text):
     doc = nlp(text)
-    locations, organizations = set(), set()
+    organizations ,locations = set(), set()
 
-    for ent in doc.ents:
-        if ent.label_ in ["GPE", "LOC"] and ent.text not in IGNORED_TERMS:
-            locations.add(ent.text.strip())  # strip() ile baştaki ve sondaki boşlukları kaldırıyoruz
-        elif ent.label_ == "ORG" and ent.text not in IGNORED_TERMS:
+    for ent in doc.ents: 
+        if ent.label_ == "ORG" and ent.text not in IGNORED_TERMS:
             organizations.add(ent.text.strip())  # strip() ile baştaki ve sondaki boşlukları kaldırıyoruz
+        elif ent.label_ in ["GPE", "LOC"] and ent.text not in IGNORED_TERMS:
+            locations.add(ent.text.strip())  # strip() ile baştaki ve sondaki boşlukları kaldırıyoruz
+       
 
     # Daha iyi tanımlama için ek kontroller
     additional_patterns = [
         r"[A-Za-z\s]+ University of [A-Za-z\s]+",  # 'University of' ile başlayan organizasyonlar
         r"[A-Za-z\s]+ Department of [A-Za-z\s]+",  # 'Department of' ile başlayan organizasyonlar
-
+        
     ]
 
     # "university of" ve "department of" içeren organizasyonları bulmak
@@ -89,8 +93,7 @@ def find_locations_and_orgs(text):
         for match in matches:
             organizations.add(match.strip())  # strip() ile baştaki ve sondaki boşlukları kaldırıyoruz
 
-    return list(locations), list(organizations)
-
+    return list(organizations),list(locations)
 
 # --- YAZAR İSİMLERİ ---
 def find_author_names(text):
@@ -104,7 +107,7 @@ def find_author_names(text):
 # --- EPOSTADAN BULUNAN İSİMLERİ YAZARA EKLE ---
 def add_email_names_to_authors(emails, author_names, text):
     email_to_name = {}
-    
+
     # İlk olarak, her bir e-posta adresini kontrol edip isimleri çıkaralım
     for email in emails:
         name = extract_name_from_email(email)  # Burada isim çıkartılıyor
@@ -113,7 +116,8 @@ def add_email_names_to_authors(emails, author_names, text):
         # Eğer isim metinde varsa, yazara ekle
         if name not in author_names and name in text:
             author_names.append(name)
-            
+
+
     return author_names, email_to_name
 
 # --- YAZAR VE ORGANİZASYONLARI AYIR ---
@@ -133,7 +137,8 @@ def decrypt_data(encrypted_data, key):
     fernet = Fernet(key)
     return fernet.decrypt(encrypted_data).decode()
 
-def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, organizations, key):
+
+def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, organizations, key, options):
     try:
         doc = fitz.open(input_pdf_path)
         if not doc:
@@ -148,7 +153,23 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, org
     term_positions = {}  # Aynı terim için konum kontrolü yapacağız
 
     # Tüm terimleri birleştiriyoruz
-    all_terms = names + organizations + locations + emails
+    all_terms = []
+    term_types = []  # Tür bilgilerini tutacak liste
+    if 'emails' in options:
+        all_terms += emails
+        term_types += ['email'] * len(emails)
+    if 'names' in options:
+        all_terms += names
+        term_types += ['name'] * len(names)
+   
+    if 'organizations' in options:
+        all_terms += organizations
+        term_types += ['organization'] * len(organizations)
+    if 'locations' in options:
+        all_terms += locations
+        term_types += ['location'] * len(locations)
+    
+        
     email_to_name = {}  # E-posta -> isim eşlemesi
     
     # Yazar isimleri ve e-posta eşlemesi
@@ -157,11 +178,8 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, org
     for page_num, page in enumerate(doc):
         page_data = []
 
-        for term in all_terms:
-            # Eğer terim daha önce anonimleştirilmişse, bu terimi atla
-            if term in anonymized_terms:
-                continue
-
+        for term, term_type in zip(all_terms, term_types):
+      
             # Eğer terim '\n' içeriyorsa, terimi ayıralım
             if '\n' in term:
                 sub_terms = term.split('\n')
@@ -184,13 +202,12 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, org
                         continue  # Aynı konumda tekrar ekleme
                     term_positions[position_key] = sub_term
 
-                
-
                     # Termi anonimleştir
                     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
                     page_data.append({
                         "text": sub_term,
                         "encrypted_text": term_enc,
+                        "type": term_type,  # Tür bilgisi eklendi
                         "page": page_num,
                         "rect": [rect.x0, rect.y0, rect.x1, rect.y1]
                     })
@@ -212,25 +229,67 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, org
     except Exception as e:
         print(f"Hata: PDF kaydedilemedi: {e}")
 
+
+def blur_faces_in_pdf(output_pdf_path, blur_pdf_path):
+    # PDF dosyasını aç
+    doc = fitz.open(output_pdf_path)
+
+    # Son sayfayı al
+    last_page = doc[-1]
+    pix = last_page.get_pixmap()
+
+    # Pixmap'i PIL image formatına çevir
+    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+    img_array = np.array(img)
+
+    # Yüz tespiti için cascade sınıfını yükle
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+
+    # Yüzleri tespit et
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+
+    # Yüzleri bulanıklaştır
+    for (x, y, w, h) in faces:
+        img_array[y:y+h, x:x+w] = cv2.GaussianBlur(img_array[y:y+h, x:x+w], (99, 99), 30)
+
+    # Bulanıklaştırılmış resmi kaydet
+    blurred_img = Image.fromarray(img_array)
+    temp_img_path = "temp_last_page.png"
+    blurred_img.save(temp_img_path)
+
+    # PDF'e resim ekle
+    last_page.insert_image(last_page.rect, filename=temp_img_path)
+
+    # Geçici dosyayı sil
+    os.remove(temp_img_path)
+
+    # PDF'i kaydet
+    doc.save(blur_pdf_path)
+    print(f"Bulanıklaştırılmış PDF başarıyla kaydedildi: {blur_pdf_path}")
+
 # --- MAIN ---
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Kullanım: python anonimleştir.py <input_pdf> <output_pdf> <opsiyonlar>")
+    if len(sys.argv) != 5:
+        print("Kullanım: python anonimleştir.py <input_pdf> <output_pdf> <blur_pdf> <opsiyonlar>")
         sys.exit(1)
 
     input_pdf_path = sys.argv[1]
     output_pdf_path = sys.argv[2]
-    anonymization_options = sys.argv[3].split(",")
+    blur_pdf_path = sys.argv[3]
+    anonymization_options = sys.argv[4].split(",")
 
     text = extract_text_between_title_and_abstract(input_pdf_path)
     emails = find_emails(text)
     author_names = find_author_names(text)
     author_names, email_to_name = add_email_names_to_authors(emails, author_names, text)
-    locations, organizations = find_locations_and_orgs(text)
+    organizations,locations = find_locations_and_orgs(text)
     author_names, organizations = filter_authors_and_organizations(author_names, organizations)
+    
 
     key = generate_key()
     with open("encryption_key.key", "wb") as kf:
         kf.write(key)
 
-    anonymize_pdf(input_pdf_path, output_pdf_path, author_names, emails, locations, organizations, key)
+    anonymize_pdf(input_pdf_path,output_pdf_path,author_names,emails,locations,organizations,key,anonymization_options)
+    blur_faces_in_pdf(output_pdf_path,blur_pdf_path)

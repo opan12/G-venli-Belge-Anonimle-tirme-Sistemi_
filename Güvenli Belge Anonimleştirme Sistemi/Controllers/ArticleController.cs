@@ -100,54 +100,29 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
             return Ok(new { TrackingNumber = article.TrackingNumber, FilePath = filePath });
         }
+        [HttpGet("download-pdf/{trackingNumber}")]
+        public async Task<IActionResult> DownloadArticlePdf(string trackingNumber)
+        {
+            var article = await _context.Articles
+                .FirstOrDefaultAsync(a => a.TrackingNumber == trackingNumber);
 
+            if (article == null || article.Status != "Yorum eklendi" || string.IsNullOrEmpty(article.AnonymizedContent))
+            {
+                return NotFound(new { Message = "Makale bulunamadı veya yorum eklenmedi." });
+            }
 
-        //[HttpPost("upload")]
-        //public async Task<IActionResult> UploadArticle([FromForm] ArticleUploadModel model)
-        //{
-        //    if (model.PdfFile == null || model.PdfFile.Length == 0)
-        //    {
-        //        return BadRequest("No file uploaded.");
-        //    }
+            var pdfPath = article.AnonymizedContent; // PDF dosyasının tam yolu
 
-        //    // "uploads" klasörünü oluştur
-        //    var uploadDirectory = Path.Combine(Directory.GetCurrentDirectory(), "uploads");
-        //    if (!Directory.Exists(uploadDirectory))
-        //    {
-        //        Directory.CreateDirectory(uploadDirectory);
-        //    }
+            if (!System.IO.File.Exists(pdfPath))
+            {
+                return NotFound(new { Message = "PDF dosyası bulunamadı." });
+            }
 
-        //    var fileExtension = Path.GetExtension(model.PdfFile.FileName);
-        //    var fileName = $"{Guid.NewGuid()}{fileExtension}"; // Rastgele dosya adı oluştur
-        //    var filePath = Path.Combine(uploadDirectory, fileName); // Tam dosya yolu
+            var fileBytes = await System.IO.File.ReadAllBytesAsync(pdfPath);
+            return File(fileBytes, "application/pdf", Path.GetFileName(pdfPath));
+        }
 
-        //    // Dosyayı kaydet
-        //    using (var fileStream = new FileStream(filePath, FileMode.Create))
-        //    {
-        //        await model.PdfFile.CopyToAsync(fileStream);
-        //    }
-
-        //    // NLP ile alan belirleme
-        //    var articleArea = DetermineArticleAreas(filePath);
-
-        //    // Veritabanına TAM DOSYA YOLUNU kaydet
-        //    var article = new Makale
-        //    {
-        //        AuthorEmail = model.AuthorEmail,
-        //        ContentPath = filePath, // TAM DOSYA YOLU KAYDEDİLİYOR
-        //        TrackingNumber = Guid.NewGuid().ToString(),
-        //        Status = "Uploaded",
-        //        Content = "",
-        //        AnonymizedContent = "",
-        //        ArticleDate = DateTime.Now,
-        //        Alan = string.Join(", ", articleArea)
-        //    };
-
-        //    _context.Articles.Add(article);
-        //    await _context.SaveChangesAsync();
-
-        //    return Ok(new { TrackingNumber = article.TrackingNumber, FilePath = filePath });
-        //}
+       
 
 
         [HttpPost("update-status")]
@@ -211,14 +186,16 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 {
                     Status = article.Status,
                     AuthorEmail = article.AuthorEmail,
-                    PdfUrl = article.AnonymizedContent // PDF'nin saklandığı alan
+                    PdfUrl = article.AnonymizedContent, // PDF'nin saklandığı alan
+                    MakaleId = article.Id // Makale ID'sini de döndür
                 });
             }
 
             return Ok(new
             {
                 Status = article.Status,
-                AuthorEmail = article.AuthorEmail
+                AuthorEmail = article.AuthorEmail,
+                MakaleId = article.Id // Makale ID'sini burada da döndür
             });
         }
 
@@ -226,12 +203,13 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         public async Task<IActionResult> GetMessages(string email)
         {
             var messages = await _context.messages
-                .Where(m => m.SenderEmail == email)
+                .Where(m => m.SenderEmail == email || m.ReceiverEmail.ToLower() == "YONETİCİ")
                 .OrderByDescending(m => m.SentAt)
                 .ToListAsync();
 
             return Ok(messages);
         }
+
         [HttpPost("send-message")]
         public async Task<IActionResult> SendMessage([FromBody] MessageModel messageModel)
         {
@@ -249,6 +227,32 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             return Ok(new { Message = "Mesaj gönderildi.", SentAt = message.SentAt });
         }
 
+        [HttpGet("tracking/{reviewerId}")]
+        public async Task<ActionResult<IEnumerable<object>>> GetTrackingNumbersByReviewer(int reviewerId)
+        {
+            var makaleIds = await _context.reviews
+                .Where(y => y.ReviewerId == reviewerId)
+                .Select(y => y.MakaleId)
+                .Distinct()
+                .ToListAsync();
+
+            if (makaleIds == null || makaleIds.Count == 0)
+            {
+                return NotFound("Bu hakeme ait yorum bulunan makale yok.");
+            }
+
+            var makaleler = await _context.Articles
+                .Where(m => makaleIds.Contains(m.Id))
+                .Select(m => new
+                {
+                    m.Id,
+                    m.TrackingNumber
+                })
+                .ToListAsync();
+
+            return Ok(makaleler);
+        }
+  
 
         [HttpPut("revise/{trackingNumber}")]
         public async Task<IActionResult> ReviseArticle(string trackingNumber, [FromForm] ArticleUploadModel model)

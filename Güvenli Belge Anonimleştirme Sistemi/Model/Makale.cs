@@ -10,7 +10,9 @@
         public DateTime ArticleDate { get; set; }
         public string Content { get; set; }
         public string AnonymizedContent { get; set; }
-        public string? DeanonymizedContent { get; set; }
+        public string? DeanonymizedContent { get; set; } // Eski anonim hali
+
+        public string? DecryptedContent { get; set; } // 📌 Yeni Alan: Deşifre Edilmiş İçerik
 
         public string Alan { get; set; }
     }

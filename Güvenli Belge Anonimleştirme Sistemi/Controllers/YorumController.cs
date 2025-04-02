@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using iTextSharp.text.pdf;
 using iTextSharp.text;
+using Güvenli_Belge_Anonimleştirme_Sistemi.Services;
 
 namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 {
@@ -13,10 +14,12 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
     public class YorumController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        public readonly IMakaleLogService _makaleLogService;
 
-        public YorumController(ApplicationDbContext context)
+        public YorumController(ApplicationDbContext context, IMakaleLogService makaleLogService)
         {
             _context = context;
+            _makaleLogService = makaleLogService;
         }
 
         [HttpGet("makaleler/{reviewerId}")]
@@ -65,7 +68,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             public int ReviewerId { get; set; } // Yorumu yapan hakem
             public string Comments { get; set; } // Yorum içeriği
         }
-      
+
         [HttpPost("yorum-ekle")]
         public async Task<IActionResult> UpdateReview([FromBody] YorumViewModel1 model)
         {
@@ -92,7 +95,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 MakaleId = model.MakaleId,
                 ReviewerId = model.ReviewerId,
                 Comments = model.Comments,
-                ReviewDate = DateTime.UtcNow
+                ReviewDate = DateTime.Now
             };
 
             _context.reviews.Add(yeniYorum);
@@ -228,6 +231,23 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                  return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
              }*/
         }
+        [HttpGet]
+        public async Task<IActionResult> GetLogs()
+        {
+            var logs = await _context.Logs
+                .OrderByDescending(l => l.ActionDate)
+                .Select(l => new
+                {
+                    l.Id,
+                    l.TrackingNumber,
+                    l.Action,
+                    ActionDate = l.ActionDate.ToString("yyyy-MM-ddTHH:mm:ss"), // ISO-8601 formatı
+                    l.PerformedBy
+                })
+                .ToListAsync();
+
+            return Ok(logs);
+        }
 
         [HttpPost("change-reviewer")]
         public async Task<IActionResult> ChangeReviewer([FromBody] YorumViewModel model)
@@ -282,7 +302,10 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
 
                 _context.reviews.Add(newReview);
                 await _context.SaveChangesAsync();
-               //  await _makaleLogService.LogMakaleAction(trackingNumber, "hakem değiştirildi", "Yönetici", DateTime.Now);
+                var trackingNumber = article.TrackingNumber;
+                await _makaleLogService.LogMakaleAction(trackingNumber, "hakem değiştirildi", "Yönetici", DateTime.Now);
+
+                //  await _makaleLogService.LogMakaleAction(trackingNumber, "hakem değiştirildi", "Yönetici", DateTime.Now);
 
                 Console.WriteLine($"[INFO] Yeni hakem atandı: {model.ReviewerId}");
 
@@ -299,6 +322,93 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                 return StatusCode(500, $"Sunucu hatası: {ex.Message}");
             }
         }
+[HttpPost("AddCommentToPdf")]
+public async Task<IActionResult> AddCommentToPdfAsync(int makaleId)
+{
+    // Veritabanından makaleyi al
+    var makale = await _context.Articles.FirstOrDefaultAsync(m => m.Id == makaleId);
+
+    if (makale == null)
+    {
+        return NotFound("Makale bulunamadı.");
+    }
+
+    // Yorum verisini veritabanından al (Son yorumu alıyoruz)
+    var yorum = await _context.reviews
+                                .Where(y => y.MakaleId == makaleId)
+                                .OrderByDescending(y => y.ReviewDate) // Son inceleme ilk alınacak
+                                .FirstOrDefaultAsync(); // Sadece son yorumu al
+
+    if (yorum == null)
+    {
+        return NotFound("Makale için yorum bulunamadı.");
+    }
+
+    // PDF yolu
+    string pdfPath = makale.DecryptedContent;
+    if (string.IsNullOrEmpty(pdfPath) || !System.IO.File.Exists(pdfPath))
+    {
+        return NotFound("PDF dosyası bulunamadı.");
+    }
+
+    string updatedPdfPath = Path.Combine(Path.GetDirectoryName(pdfPath), $"Updated_{Path.GetFileName(pdfPath)}");
+
+    try
+    {
+        // PDF dosyasını oku ve güncelle
+        using (var existingPdfStream = new FileStream(pdfPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+        using (var newPdfStream = new FileStream(updatedPdfPath, FileMode.Create, FileAccess.Write))
+        using (var reader = new PdfReader(existingPdfStream))
+        using (var stamper = new PdfStamper(reader, newPdfStream))
+        {
+            int lastPage = reader.NumberOfPages;
+            stamper.InsertPage(lastPage + 1, reader.GetPageSize(lastPage)); // Yeni sayfa ekle
+
+            PdfContentByte canvas = stamper.GetOverContent(lastPage + 1);
+            BaseFont baseFont = BaseFont.CreateFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+
+            canvas.BeginText();
+            canvas.SetFontAndSize(baseFont, 12);
+            canvas.SetTextMatrix(50, 750); // Yeni sayfanın en üstüne yerleştirme
+
+            // Yeni yorumu ekle
+            canvas.ShowText("--- Yeni Yorum ---");
+            canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Yorum: {yorum.Comments}", 50, 730, 0);
+            canvas.ShowTextAligned(PdfContentByte.ALIGN_LEFT, $"Tarih: {yorum.ReviewDate:yyyy-MM-dd HH:mm}", 50, 710, 0);
+
+            canvas.EndText();
+            stamper.Close();
+        }
+
+        // Yeni PDF dosyasını belirli bir dizine kaydet
+        string newSavePath = Path.Combine("wwwroot", "uploads", "updated", Path.GetFileName(updatedPdfPath));
+        if (!Directory.Exists(Path.GetDirectoryName(newSavePath)))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(newSavePath));
+        }
+
+        System.IO.File.Move(updatedPdfPath, newSavePath, true);
+
+        // Makale durumunu ve yeni PDF yolunu güncelle
+        makale.Status = "Teslim Edildi";
+        makale.DecryptedContent = newSavePath;
+        _context.Articles.Update(makale);
+
+        await _context.SaveChangesAsync();
+        var fileBytes = await System.IO.File.ReadAllBytesAsync(newSavePath);
+        return File(fileBytes, "application/pdf", Path.GetFileName(newSavePath));
+
+    }
+    catch (IOException ioEx)
+    {
+        return StatusCode(500, $"PDF güncellenirken dosya hatası oluştu: {ioEx.Message}");
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, $"PDF güncellenirken hata oluştu: {ex.Message}");
+    }
+}
+
 
         [HttpGet("reviewers/{field}")]
         public IActionResult GetReviewersByField(string field)
@@ -334,19 +444,23 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
         {
             try
             {
+                // Geçersiz kimlik kontrolü
                 if (model.ArticleId <= 0 || model.ReviewerId <= 0)
                 {
                     return BadRequest("Geçersiz makale veya hakem kimliği.");
                 }
 
+                // Makale ve hakemi veritabanından bul
                 var article = await _context.Articles.FindAsync(model.ArticleId);
                 var reviewer = await _context.Reviewers.FindAsync(model.ReviewerId);
 
+                // Eğer makale veya hakem bulunamazsa hata dön
                 if (article == null || reviewer == null)
                 {
                     return NotFound("Makale veya hakem bulunamadı.");
                 }
 
+                // Yeni yorum oluştur
                 var yorum = new Yorum
                 {
                     MakaleId = model.ArticleId,
@@ -355,11 +469,16 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
                     Comments = "",
                 };
 
+                // Yorum veritabanına ekle
                 _context.reviews.Add(yorum);
                 await _context.SaveChangesAsync();
 
+                // Makalenin tracking numarasını al
+                var trackingNumber = article.TrackingNumber; // Makale nesnesinden TrackingNumber alın
+
+                // Loglama işlemi
                 Console.WriteLine($"[INFO] {yorum.ReviewerId} hakem olarak atandı!"); // Log Ekle
-                // await _makaleLogService.LogMakaleAction(trackingNumber, "hakem eklendi", "Yönetici", DateTime.Now);
+                await _makaleLogService.LogMakaleAction(trackingNumber, "hakem eklendi", "Yönetici", DateTime.Now);
 
                 return Ok(new { message = "Hakem başarıyla atandı.", AssignmentDate = yorum.ReviewDate });
             }

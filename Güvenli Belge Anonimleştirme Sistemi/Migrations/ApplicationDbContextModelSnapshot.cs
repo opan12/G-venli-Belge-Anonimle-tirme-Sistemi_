@@ -84,6 +84,9 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Migrations
                     b.Property<string>("DeanonymizedContent")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("DecryptedContent")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");

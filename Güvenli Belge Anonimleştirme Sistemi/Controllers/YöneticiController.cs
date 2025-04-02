@@ -1,5 +1,6 @@
 ﻿using Güvenli_Belge_Anonimleştirme_Sistemi.Data;
 using Güvenli_Belge_Anonimleştirme_Sistemi.Model;
+using Güvenli_Belge_Anonimleştirme_Sistemi.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,10 +14,13 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
     public class YöneticiController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        public readonly IMakaleLogService _makaleLogService;
 
-        public YöneticiController(ApplicationDbContext context)
+
+        public YöneticiController(ApplicationDbContext context, IMakaleLogService makaleLogService)
         {
             _context = context;
+            _makaleLogService = makaleLogService;
         }
         public class UserRegisterModel
         {
@@ -142,6 +146,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             _context.Reviewers.Add(reviewer);
             await _context.SaveChangesAsync();
             // await _makaleLogService.LogMakaleAction(trackingNumber, "hakem eklendi", "Yönetici", DateTime.Now);
+            await _makaleLogService.LogMakaleAction("", "hakem eklendi", "Yönetici", DateTime.Now);
 
             // Başarılı ekleme sonrası 201 Created dönüyoruz.
             return CreatedAtAction(nameof(AddReviewer), new { alan = reviewer.Alan }, reviewer);
