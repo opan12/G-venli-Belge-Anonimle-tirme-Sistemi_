@@ -207,8 +207,8 @@ def anonymize_pdf(input_pdf_path, output_pdf_path, names, emails, locations, org
 
     try:
         doc.save(output_pdf_path)
-        print(f"✅ PDF başarıyla kaydedildi: {output_pdf_path}")
-        print(f"🔐 Şifrelenmiş metinler 'encrypted_data.json' dosyasına yazıldı.")
+        print(f"PDF başarıyla kaydedildi: {output_pdf_path}")
+        print(f"Şifrelenmiş metinler 'encrypted_data.json' dosyasına yazıldı.")
     except Exception as e:
         print(f"Hata: PDF kaydedilemedi: {e}")
 

@@ -124,7 +124,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             // Base64 yerine dosya yolunu kaydet
             makale.AnonymizedContent = outputFilePath;
             await _context.SaveChangesAsync();
-            await _makaleLogService.LogMakaleAction(trackingNumber, "Makale anonimleştirildi", "Yönetici", DateTime.Now);
+          //  await _makaleLogService.LogMakaleAction(trackingNumber, "Makale anonimleştirildi", "Yönetici", DateTime.Now);
 
 
             return Ok(new { message = "Anonimleştirme tamamlandı ve veritabanına kaydedildi.", path = outputFilePath });
@@ -319,7 +319,7 @@ namespace Güvenli_Belge_Anonimleştirme_Sistemi.Controllers
             {
                 //string pythonScript = @"C:\Users\Casper\source\repos\Güvenli Belge Anonimleştirme Sistemi\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
                 // string pythonExe = @"C:\Users\Casper\AppData\Local\Programs\Python\Python311\python.exe";
-                string pythonScript = @"C:\Users\medih\Source\Repos\G-venli-Belge-Anonimle-tirme-Sistemi_\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
+               string pythonScript = @"C:\Users\medih\Source\Repos\G-venli-Belge-Anonimle-tirme-Sistemi_\Güvenli Belge Anonimleştirme Sistemi\anonymize.py";
                 string pythonExe = @"C:\Users\medih\AppData\Local\Programs\Python\Python311\python.exe";
 
                 string maskAuthors = options.MaskAuthors ? "names" : "";
